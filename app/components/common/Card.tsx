@@ -9,35 +9,27 @@ import {
   GestureResponderEvent,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  useTheme,
-  useTypography,
-  useShadows,
-  spacing,
-  borderRadius,
-  layout,
-} from "../../theme";
+import { useTheme } from "react-native-paper";
 
 export interface CardProps {
   children?: React.ReactNode;
   title?: string;
   subtitle?: string;
-  variant?: "elevated" | "outlined" | "flat" | "filled";
+  variant?: "elevated" | "outlined" | "filled" | "flat";
   padding?: "none" | "small" | "medium" | "large";
   margin?: "none" | "small" | "medium" | "large";
   onPress?: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   style?: ViewStyle;
-  contentStyle?: ViewStyle;
-  headerStyle?: ViewStyle;
   titleStyle?: TextStyle;
   subtitleStyle?: TextStyle;
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
-  rightIcon?: string;
+  contentStyle?: ViewStyle;
+  headerStyle?: ViewStyle;
+  footerStyle?: ViewStyle;
   leftIcon?: string;
-  onRightIconPress?: () => void;
+  rightIcon?: string;
   onLeftIconPress?: () => void;
+  onRightIconPress?: () => void;
   loading?: boolean;
   testID?: string;
   elevation?: "none" | "small" | "medium" | "large";
@@ -53,287 +45,170 @@ const Card: React.FC<CardProps> = ({
   onPress,
   disabled = false,
   style,
-  contentStyle,
-  headerStyle,
   titleStyle,
   subtitleStyle,
-  header,
-  footer,
-  rightIcon,
+  contentStyle,
+  headerStyle,
+  footerStyle,
   leftIcon,
-  onRightIconPress,
+  rightIcon,
   onLeftIconPress,
+  onRightIconPress,
   loading = false,
   testID,
   elevation = "medium",
 }) => {
-  const { theme } = useTheme();
-  const typography = useTypography();
-  const shadows = useShadows();
+  const theme = useTheme();
 
   const getCardStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      borderRadius: borderRadius.lg,
-      overflow: "hidden",
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      marginBottom: 16,
     };
 
-    // Margin styles
-    switch (margin) {
-      case "small":
-        baseStyle.margin = spacing.sm;
-        break;
-      case "large":
-        baseStyle.margin = spacing.lg;
-        break;
-      case "none":
-        baseStyle.margin = 0;
-        break;
-      default: // medium
-        baseStyle.margin = spacing.md;
-        break;
+    // Elevation
+    if (variant === "elevated") {
+      baseStyle.elevation = 4;
+      baseStyle.shadowColor = "#000";
+      baseStyle.shadowOffset = { width: 0, height: 2 };
+      baseStyle.shadowOpacity = 0.1;
+      baseStyle.shadowRadius = 4;
     }
 
-    // Variant styles
-    switch (variant) {
-      case "elevated":
-        baseStyle.backgroundColor = theme.surface.elevated;
-        switch (elevation) {
-          case "small":
-            Object.assign(baseStyle, shadows.sm);
-            break;
-          case "large":
-            Object.assign(baseStyle, shadows.lg);
-            break;
-          case "none":
-            Object.assign(baseStyle, shadows.none);
-            break;
-          default: // medium
-            Object.assign(baseStyle, shadows.card);
-            break;
-        }
-        break;
-      case "outlined":
-        baseStyle.backgroundColor = theme.surface.primary;
-        baseStyle.borderWidth = 1;
-        baseStyle.borderColor = theme.border.primary;
-        break;
-      case "filled":
-        baseStyle.backgroundColor = theme.surface.secondary;
-        break;
-      case "flat":
-        baseStyle.backgroundColor = theme.surface.primary;
-        break;
+    // Outline
+    if (variant === "outlined") {
+      baseStyle.borderWidth = 1;
+      baseStyle.borderColor = theme.colors.outline;
     }
 
-    // Disabled state
-    if (disabled) {
-      baseStyle.opacity = 0.6;
-    }
+    // Padding
+    const paddingMap = {
+      none: 0,
+      small: 8,
+      medium: 16,
+      large: 24,
+    };
+    baseStyle.padding = paddingMap[padding];
+
+    // Margin
+    const marginMap = {
+      none: 0,
+      small: 4,
+      medium: 8,
+      large: 16,
+    };
+    baseStyle.margin = marginMap[margin];
 
     return baseStyle;
   };
 
-  const getContentStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {};
+  const cardStyle = getCardStyle();
 
-    // Padding styles
-    switch (padding) {
-      case "small":
-        baseStyle.padding = spacing.sm;
-        break;
-      case "large":
-        baseStyle.padding = spacing.lg;
-        break;
-      case "none":
-        baseStyle.padding = 0;
-        break;
-      default: // medium
-        baseStyle.padding = spacing.md;
-        break;
-    }
-
-    return baseStyle;
-  };
-
-  const renderHeader = () => {
-    if (header) {
-      return (
-        <View style={[styles.headerContainer, headerStyle]}>{header}</View>
-      );
-    }
-
-    if (!title && !subtitle && !leftIcon && !rightIcon) {
-      return null;
-    }
-
-    return (
-      <View style={[styles.headerContainer, headerStyle]}>
-        <View style={styles.headerLeft}>
-          {leftIcon && (
+  const CardContent = () => (
+    <View style={[cardStyle, style]} testID={testID}>
+      {(title || subtitle || leftIcon || rightIcon) && (
+        <View style={[styles.header, headerStyle]}>
+          <View style={styles.headerLeft}>
+            {leftIcon && (
+              <TouchableOpacity
+                onPress={onLeftIconPress}
+                disabled={!onLeftIconPress}
+              >
+                <Ionicons
+                  name={leftIcon as any}
+                  size={24}
+                  color={theme.colors.onSurface}
+                  style={styles.icon}
+                />
+              </TouchableOpacity>
+            )}
+            <View style={styles.headerText}>
+              {title && (
+                <Text
+                  style={[
+                    styles.title,
+                    { color: theme.colors.onSurface },
+                    titleStyle,
+                  ]}
+                >
+                  {title}
+                </Text>
+              )}
+              {subtitle && (
+                <Text
+                  style={[
+                    styles.subtitle,
+                    { color: theme.colors.onSurfaceVariant },
+                    subtitleStyle,
+                  ]}
+                >
+                  {subtitle}
+                </Text>
+              )}
+            </View>
+          </View>
+          {rightIcon && (
             <TouchableOpacity
-              onPress={onLeftIconPress}
-              disabled={!onLeftIconPress || disabled}
-              style={[
-                styles.iconButton,
-                { backgroundColor: theme.surface.tertiary },
-              ]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              onPress={onRightIconPress}
+              disabled={!onRightIconPress}
             >
               <Ionicons
-                name={leftIcon as any}
-                size={20}
-                color={theme.text.primary}
+                name={rightIcon as any}
+                size={24}
+                color={theme.colors.onSurface}
               />
             </TouchableOpacity>
           )}
-
-          <View
-            style={[
-              styles.titleContainer,
-              leftIcon && { marginLeft: spacing.sm },
-            ]}
-          >
-            {title && (
-              <Text
-                style={[
-                  styles.title,
-                  { color: theme.text.primary },
-                  titleStyle,
-                ]}
-                numberOfLines={2}
-              >
-                {title}
-              </Text>
-            )}
-            {subtitle && (
-              <Text
-                style={[
-                  styles.subtitle,
-                  { color: theme.text.secondary },
-                  subtitleStyle,
-                ]}
-                numberOfLines={2}
-              >
-                {subtitle}
-              </Text>
-            )}
-          </View>
         </View>
+      )}
 
-        {rightIcon && (
-          <TouchableOpacity
-            onPress={onRightIconPress}
-            disabled={!onRightIconPress || disabled}
-            style={[
-              styles.iconButton,
-              { backgroundColor: theme.surface.tertiary },
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name={rightIcon as any}
-              size={20}
-              color={theme.text.primary}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const renderContent = () => {
-    if (!children) return null;
-
-    return <View style={[getContentStyle(), contentStyle]}>{children}</View>;
-  };
-
-  const renderFooter = () => {
-    if (!footer) return null;
-
-    return (
-      <View
-        style={[
-          styles.footerContainer,
-          { borderTopColor: theme.border.secondary },
-        ]}
-      >
-        {footer}
-      </View>
-    );
-  };
-
-  const cardContent = (
-    <View style={[getCardStyle(), style]} testID={testID}>
-      {renderHeader()}
-      {renderContent()}
-      {renderFooter()}
+      {children && (
+        <View style={[styles.content, contentStyle]}>{children}</View>
+      )}
     </View>
   );
 
   if (onPress && !disabled) {
     return (
-      <TouchableOpacity
-        onPress={onPress}
-        disabled={disabled || loading}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityState={{
-          disabled: disabled || loading,
-          busy: loading,
-        }}
-        style={[
-          {
-            transform: [{ scale: 1 }],
-          },
-        ]}
-      >
-        {cardContent}
+      <TouchableOpacity onPress={onPress} disabled={disabled || loading}>
+        <CardContent />
       </TouchableOpacity>
     );
   }
 
-  return cardContent;
+  return <CardContent />;
 };
 
 const styles = StyleSheet.create({
-  headerContainer: {
+  header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    alignItems: "center",
+    marginBottom: 8,
   },
   headerLeft: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
-  titleContainer: {
+  headerText: {
     flex: 1,
   },
   title: {
-    ...layout.flex.centerVertical,
     fontSize: 18,
     fontWeight: "600",
-    lineHeight: 24,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
     fontWeight: "400",
-    marginTop: spacing.xs,
-    lineHeight: 20,
   },
-  iconButton: {
-    padding: spacing.sm,
-    borderRadius: borderRadius.md,
-    ...layout.flex.center,
+  content: {
+    flex: 1,
   },
-  footerContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
+  icon: {
+    marginRight: 12,
   },
 });
 

@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import { persist, createJSONStorage, subscribeWithSelector  } from "zustand/middleware";
+import {
+  persist,
+  createJSONStorage,
+  subscribeWithSelector,
+} from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { User, Session } from "@supabase/supabase-js";
-import {
-  User as AppUser,
-  RegisterData,
-  BiometricAuthResult,
-} from "../types";
+import { User as AppUser, RegisterData, BiometricAuthResult } from "../types";
 import { AuthService, SupabaseService } from "../services/supabase";
 import BiometricService from "../services/auth/biometric";
 
@@ -176,8 +176,75 @@ export const useAuthStore = create<AuthState>()(
               const profileResult = await SupabaseService.getUserProfile(
                 data.user.id,
               );
-              const profile = profileResult.data;
 
+              if (!profileResult.data && !profileResult.error) {
+                console.log(
+                  "ℹ️ No profile found, attempting to create basic profile",
+                );
+
+                // Try to auto-create a basic profile for existing auth users
+                const basicProfileData = {
+                  id: data.user.id,
+                  email: data.user.email || "",
+                  phone: `temp_${data.user.id.slice(0, 8)}`, // Temporary unique phone
+                  full_name:
+                    data.user.user_metadata?.full_name ||
+                    data.user.email?.split("@")[0] ||
+                    "User",
+                  user_type: "student" as const,
+                  university: "KNUST", // Default university to satisfy NOT NULL constraint
+                  is_verified: false,
+                  is_active: true,
+                  face_id_enabled: false,
+                  rating: 0,
+                  total_orders: 0,
+                };
+
+                console.log("🔄 Creating basic profile:", basicProfileData);
+                const createResult =
+                  await SupabaseService.createUserProfile(basicProfileData);
+
+                if (createResult.error) {
+                  console.log(
+                    "❌ Failed to auto-create profile, user needs manual setup",
+                  );
+                  // User exists but has no profile - allow them to complete setup manually
+                  set({
+                    user: data.user,
+                    session: data.session,
+                    profile: null,
+                    isAuthenticated: true,
+                    isLoading: false,
+                    error: null,
+                    lastError: null,
+                  });
+                  return { success: true };
+                }
+
+                console.log("✅ Basic profile created successfully");
+                set({
+                  user: data.user,
+                  session: data.session,
+                  profile: createResult.data,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  error: null,
+                  lastError: null,
+                });
+                return { success: true };
+              }
+
+              if (profileResult.error) {
+                console.error("Profile fetch error:", profileResult.error);
+                set({
+                  isLoading: false,
+                  error: `Profile error: ${profileResult.error}`,
+                  lastError: profileResult.error,
+                });
+                return { success: false, error: profileResult.error };
+              }
+
+              const profile = profileResult.data;
               set({
                 user: data.user,
                 session: data.session,
@@ -328,8 +395,79 @@ export const useAuthStore = create<AuthState>()(
               const profileResult = await SupabaseService.getUserProfile(
                 session.user.id,
               );
-              const profile = profileResult.data;
 
+              if (!profileResult.data && !profileResult.error) {
+                console.log(
+                  "ℹ️ No profile found for Google user, attempting to create basic profile",
+                );
+
+                // Try to auto-create a basic profile for Google users
+                const basicProfileData = {
+                  id: session.user.id,
+                  email: session.user.email || "",
+                  phone: `temp_${session.user.id.slice(0, 8)}`, // Temporary unique phone
+                  full_name:
+                    session.user.user_metadata?.full_name ||
+                    session.user.email?.split("@")[0] ||
+                    "User",
+                  user_type: "student" as const,
+                  university: "KNUST", // Default university to satisfy NOT NULL constraint
+                  is_verified: false,
+                  is_active: true,
+                  face_id_enabled: false,
+                  rating: 0,
+                  total_orders: 0,
+                };
+
+                console.log(
+                  "🔄 Creating basic profile for Google user:",
+                  basicProfileData,
+                );
+                const createResult =
+                  await SupabaseService.createUserProfile(basicProfileData);
+
+                if (createResult.error) {
+                  console.log(
+                    "❌ Failed to auto-create profile for Google user, needs manual setup",
+                  );
+                  set({
+                    user: session.user,
+                    session: session,
+                    profile: null,
+                    isAuthenticated: true,
+                    isLoading: false,
+                    error: null,
+                    lastError: null,
+                  });
+                  return { success: true };
+                }
+
+                console.log(
+                  "✅ Basic profile created successfully for Google user",
+                );
+                set({
+                  user: session.user,
+                  session: session,
+                  profile: createResult.data,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  error: null,
+                  lastError: null,
+                });
+                return { success: true };
+              }
+
+              if (profileResult.error) {
+                console.error("Profile fetch error:", profileResult.error);
+                set({
+                  isLoading: false,
+                  error: `Profile error: ${profileResult.error}`,
+                  lastError: profileResult.error,
+                });
+                return { success: false, error: profileResult.error };
+              }
+
+              const profile = profileResult.data;
               set({
                 user: session.user,
                 session: session,
@@ -611,11 +749,22 @@ export const useAuthStore = create<AuthState>()(
             if (!currentUser) return;
 
             console.log("🔄 Refreshing user profile...");
-            const { data: profile } = await SupabaseService.getUserProfile(
+            const profileResult = await SupabaseService.getUserProfile(
               currentUser.id,
             );
 
-            set({ profile });
+            if (!profileResult.data && !profileResult.error) {
+              console.log("ℹ️ No profile found during refresh");
+              set({ profile: null });
+              return;
+            }
+
+            if (profileResult.error) {
+              console.error("Profile refresh error:", profileResult.error);
+              return;
+            }
+
+            set({ profile: profileResult.data });
             console.log("✅ Profile refreshed");
           } catch (error) {
             console.error("❌ Refresh profile error:", error);
@@ -736,10 +885,72 @@ export const useAuthStore = create<AuthState>()(
               console.log("✅ Found active session");
 
               // Load user profile
-              const { data: profile } = await SupabaseService.getUserProfile(
+              const profileResult = await SupabaseService.getUserProfile(
                 session.user.id,
               );
 
+              if (!profileResult.data && !profileResult.error) {
+                console.log(
+                  "ℹ️ No profile found for existing session, attempting to create basic profile",
+                );
+
+                // Try to auto-create a basic profile for existing session
+                const basicProfileData = {
+                  id: session.user.id,
+                  email: session.user.email || "",
+                  phone: `temp_${session.user.id.slice(0, 8)}`, // Temporary unique phone
+                  full_name:
+                    session.user.user_metadata?.full_name ||
+                    session.user.email?.split("@")[0] ||
+                    "User",
+                  user_type: "student" as const,
+                  university: "KNUST", // Default university to satisfy NOT NULL constraint
+                  is_verified: false,
+                  is_active: true,
+                  face_id_enabled: false,
+                  rating: 0,
+                  total_orders: 0,
+                };
+
+                console.log(
+                  "🔄 Creating basic profile for existing session:",
+                  basicProfileData,
+                );
+                const createResult =
+                  await SupabaseService.createUserProfile(basicProfileData);
+
+                if (createResult.error) {
+                  console.log(
+                    "❌ Failed to auto-create profile for existing session, needs manual setup",
+                  );
+                  set({
+                    user: session.user,
+                    session: session,
+                    profile: null,
+                    isAuthenticated: true,
+                    isInitialized: true,
+                    isLoading: false,
+                    error: null,
+                  });
+                  return;
+                }
+
+                console.log(
+                  "✅ Basic profile created successfully for existing session",
+                );
+                set({
+                  user: session.user,
+                  session: session,
+                  profile: createResult.data,
+                  isAuthenticated: true,
+                  isInitialized: true,
+                  isLoading: false,
+                  error: null,
+                });
+                return;
+              }
+
+              const profile = profileResult.data;
               set({
                 user: session.user,
                 session: session,

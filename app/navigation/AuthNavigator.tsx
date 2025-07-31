@@ -7,9 +7,9 @@ import GoogleLoginScreen from "../screens/auth/GoogleLoginScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import UserTypeSelectionScreen from "../screens/auth/UserTypeSelectionScreen";
+import ProfileSetupScreen from "../screens/auth/ProfileSetupScreen";
 import WelcomeScreen from "../screens/auth/WelcomeScreen";
 import SplashScreen from "../screens/splash/SplashScreen";
-
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -75,7 +75,6 @@ const AuthNavigator: React.FC = () => {
         }}
       />
 
-      {/* ProfileSetup screen commented out - phone auth disabled
       <Stack.Screen
         name="ProfileSetup"
         component={ProfileSetupScreen}
@@ -84,8 +83,7 @@ const AuthNavigator: React.FC = () => {
           gestureEnabled: false, // Must complete profile
         }}
       />
-      */}
-      
+
       <Stack.Screen
         name="EmailVerification"
         component={EmailVerificationScreen}

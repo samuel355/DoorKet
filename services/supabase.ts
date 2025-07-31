@@ -287,7 +287,7 @@ export class SupabaseService {
         .from("users")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Get user profile error:", error);

@@ -218,14 +218,18 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     }
 
     try {
+      // Generate a temporary phone number if not provided (since phone is NOT NULL in DB)
+      const tempPhone =
+        registrationData.phone || `temp_${user?.id?.slice(0, 8) || Date.now()}`;
+
       const profileData = {
-        phone: registrationData.phone,
+        phone: tempPhone,
         full_name: registrationData.full_name,
         email:
           registrationData.email ||
-          `${registrationData.phone.replace(/[^\d]/g, "")}@chopcart.app`,
+          `${tempPhone.replace(/[^\d]/g, "")}@chopcart.app`,
         user_type: userType,
-        university: registrationData.university,
+        university: registrationData.university || "KNUST", // Default university to satisfy NOT NULL
         hall_hostel:
           userType === "student" ? registrationData.hall_hostel : undefined,
         room_number:
