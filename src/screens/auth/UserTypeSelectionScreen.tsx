@@ -454,7 +454,7 @@ const UserTypeSelectionScreen: React.FC<UserTypeSelectionScreenProps> = ({
               </LinearGradient>
               <Text style={styles.title}>Choose Your Role</Text>
               <Text style={styles.subtitle}>
-                How would you like to use ChopCart?
+                How would you like to use DoorKet?
               </Text>
             </View>
           </View>

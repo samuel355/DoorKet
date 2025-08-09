@@ -25,7 +25,7 @@ export interface BiometricSettings {
 }
 
 // Constants
-const BIOMETRIC_STORAGE_KEY = "chopcart_biometric_settings";
+const BIOMETRIC_STORAGE_KEY = "DoorKet_biometric_settings";
 const USER_BIOMETRIC_PREFIX = "biometric_user_";
 
 export class BiometricService {

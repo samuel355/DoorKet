@@ -215,7 +215,7 @@ export class MobileFirebaseAuth {
           return {
             success: false,
             error:
-              "Phone authentication not enabled in Firebase Console. Enable it at: https://console.firebase.google.com/project/chopcart-82798/authentication",
+              "Phone authentication not enabled in Firebase Console. Enable it at: https://console.firebase.google.com/project/DoorKet-82798/authentication",
           };
         }
 

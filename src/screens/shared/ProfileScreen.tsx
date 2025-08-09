@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
   // Form styles
   formContainer: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    marginVertical: spacing.xxxl,
   },
   formCard: {
     borderRadius: borderRadius.lg,
@@ -945,6 +945,7 @@ const styles = StyleSheet.create({
   // Actions styles
   actionsContainer: {
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xxxxxl,
   },
   actionButton: {
     marginBottom: spacing.md,

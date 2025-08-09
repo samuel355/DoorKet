@@ -1,4 +1,4 @@
-// ChopCart App Constants
+// DoorKet App Constants
 import { Dimensions, Platform } from "react-native";
 
 // Device Dimensions
@@ -6,7 +6,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // App Configuration
 export const APP_CONFIG = {
-  APP_NAME: "ChopCart",
+  APP_NAME: "DoorKet",
   VERSION: "1.0.0",
   API_TIMEOUT: 30000,
   MAX_RETRY_ATTEMPTS: 3,
@@ -332,16 +332,16 @@ export const VALIDATION = {
 
 // Storage Keys
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: "@chopcart/auth_token",
-  REFRESH_TOKEN: "@chopcart/refresh_token",
-  USER_PROFILE: "@chopcart/user_profile",
-  BIOMETRIC_ENABLED: "@chopcart/biometric_enabled",
-  ONBOARDING_COMPLETED: "@chopcart/onboarding_completed",
-  CART_ITEMS: "@chopcart/cart_items",
-  RECENT_SEARCHES: "@chopcart/recent_searches",
-  APP_SETTINGS: "@chopcart/app_settings",
-  NOTIFICATION_TOKEN: "@chopcart/notification_token",
-  LAST_LOCATION: "@chopcart/last_location",
+  AUTH_TOKEN: "@DoorKet/auth_token",
+  REFRESH_TOKEN: "@DoorKet/refresh_token",
+  USER_PROFILE: "@DoorKet/user_profile",
+  BIOMETRIC_ENABLED: "@DoorKet/biometric_enabled",
+  ONBOARDING_COMPLETED: "@DoorKet/onboarding_completed",
+  CART_ITEMS: "@DoorKet/cart_items",
+  RECENT_SEARCHES: "@DoorKet/recent_searches",
+  APP_SETTINGS: "@DoorKet/app_settings",
+  NOTIFICATION_TOKEN: "@DoorKet/notification_token",
+  LAST_LOCATION: "@DoorKet/last_location",
 } as const;
 
 // Feature Flags

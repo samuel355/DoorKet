@@ -153,7 +153,7 @@ export class AuthService {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: "chopcart://auth/callback",
+          redirectTo: "DoorKet://auth/callback",
         },
       });
 

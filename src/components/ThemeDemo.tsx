@@ -193,7 +193,7 @@ const ThemeDemo: React.FC = () => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={[typography.caption, { color: theme.text.tertiary, textAlign: 'center' }]}>
-          ChopCart Theme System v2.0
+          DoorKet Theme System v2.0
         </Text>
       </View>
     </ScrollView>

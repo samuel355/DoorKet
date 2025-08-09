@@ -17,11 +17,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
 
 import { Loading, EmptyState } from "../../components/common";
-import { Order, StudentStackParamList } from "@/types";
+import { StudentStackParamList } from "@/types";
 import { OrderService } from "@/services/supabase";
 import { useAuth } from "@/store/authStore";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
+import { CommonActions } from "@react-navigation/native";
 
 type OrderHistoryScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -82,10 +83,10 @@ const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
       ]),
     ]).start();
 
@@ -104,7 +105,7 @@ const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ]),
+      ])
     ).start();
   }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
 
@@ -131,7 +132,7 @@ const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
       setFilteredOrders(orders);
     } else {
       const filtered = orders.filter((order) =>
-        order.order_number.toLowerCase().includes(searchQuery.toLowerCase()),
+        order.order_number.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredOrders(filtered);
     }
@@ -456,7 +457,14 @@ const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
         </Text>
         <TouchableOpacity
           style={styles.emptyButton}
-          onPress={() => navigation.navigate("Categories")}
+          onPress={() =>
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: "HomeTab", // 👈 tab route name
+                params: { screen: "Categories" }, // 👈 stack screen inside HomeTab
+              })
+            )
+          }
         >
           <LinearGradient
             colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
@@ -759,3 +767,16 @@ const styles = StyleSheet.create({
 });
 
 export default OrderHistoryScreen;
+
+export interface Order {
+  id: string;
+  order_number: string;
+  created_at: string;
+  status: string;
+  total_amount: number;
+  runner?: {
+    full_name: string;
+  };
+  items?: any[]; // Add the items property, adjust type as needed
+  // other properties...
+}

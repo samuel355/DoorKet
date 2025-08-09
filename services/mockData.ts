@@ -1,4 +1,4 @@
-// Mock Data Service for ChopCart
+// Mock Data Service for DoorKet
 // This service provides mock data for development and testing when database is not available
 
 import { Category, Item, Order, User as AppUser, OrderItem } from "../types";
@@ -392,7 +392,7 @@ export const MOCK_USERS: AppUser[] = [
   },
   {
     id: "user-3",
-    email: "admin@chopcart.com",
+    email: "admin@DoorKet.com",
     phone: "+233501234567",
     full_name: "Admin User",
     user_type: "admin",

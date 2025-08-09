@@ -225,7 +225,7 @@ const WelcomeScreen: React.FC = () => {
             <Animated.View
               style={[styles.textContainer, { opacity: fadeAnim }]}
             >
-              <Text style={styles.appName}>ChopCart</Text>
+              <Text style={styles.appName}>DoorKet</Text>
               <Text style={styles.tagline}>Your campus shopping made easy</Text>
               <View style={styles.taglineUnderline} />
             </Animated.View>
@@ -233,7 +233,7 @@ const WelcomeScreen: React.FC = () => {
 
           {/* Features Section */}
           <View style={styles.featuresSection}>
-            <Text style={styles.featuresTitle}>Why Choose ChopCart?</Text>
+            <Text style={styles.featuresTitle}>Why Choose DoorKet?</Text>
 
             <View style={styles.featuresGrid}>
               {/* Feature 1 */}

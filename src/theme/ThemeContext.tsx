@@ -16,7 +16,7 @@ import {
 } from "./styling";
 
 // Storage key for theme preference
-const THEME_STORAGE_KEY = "@chopcart/theme_mode";
+const THEME_STORAGE_KEY = "@DoorKet/theme_mode";
 
 // Theme context interface
 interface ThemeContextType {

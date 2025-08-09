@@ -29,6 +29,7 @@ import { CartItem, StudentStackParamList } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
+import { CommonActions } from "@react-navigation/native";
 
 type CartScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -61,7 +62,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
 
   const [deliveryAddress, setDeliveryAddress] = useState(cart.delivery_address);
   const [specialInstructions, setSpecialInstructions] = useState(
-    cart.special_instructions,
+    cart.special_instructions
   );
   const [isUpdatingAddress, setIsUpdatingAddress] = useState(false);
 
@@ -119,7 +120,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ]),
+      ])
     ).start();
   }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
 
@@ -131,7 +132,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       }
       await updateQuantity(itemId, newQuantity);
     },
-    [updateQuantity],
+    [updateQuantity]
   );
 
   const handleRemoveItem = useCallback(
@@ -139,17 +140,17 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       showConfirmation(
         "Remove Item",
         "Are you sure you want to remove this item from your cart?",
-        () => removeItem(itemId),
+        () => removeItem(itemId)
       );
     },
-    [removeItem],
+    [removeItem]
   );
 
   const handleClearCart = useCallback(() => {
     showConfirmation(
       "Clear Cart",
       "Are you sure you want to remove all items from your cart?",
-      () => clearCart(),
+      () => clearCart()
     );
   }, [clearCart]);
 
@@ -173,14 +174,14 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       if (isEmpty) {
         Alert.alert(
           "Empty Cart",
-          "Your cart is empty. Add some items to continue.",
+          "Your cart is empty. Add some items to continue."
         );
         return;
       }
       if (!deliveryAddress.trim()) {
         Alert.alert(
           "Delivery Address Required",
-          "Please add a delivery address to continue.",
+          "Please add a delivery address to continue."
         );
         return;
       }
@@ -543,7 +544,14 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         <Text style={styles.emptySubtitle}>Add some items to get started</Text>
         <TouchableOpacity
           style={styles.emptyButton}
-          onPress={() => navigation.navigate("Categories")}
+          onPress={() =>
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: "HomeTab", // 👈 tab route name
+                params: { screen: "Categories" }, // 👈 stack screen inside HomeTab
+              })
+            )
+          }
         >
           <LinearGradient
             colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}

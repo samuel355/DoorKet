@@ -336,7 +336,7 @@ const SplashScreen: React.FC = () => {
             },
           ]}
         >
-          <Text style={styles.appName}>ChopCart</Text>
+          <Text style={styles.appName}>DoorKet</Text>
           <View style={styles.taglineContainer}>
             <View style={styles.taglineLine} />
             <Text style={styles.tagline}>Your Campus Shopping Made Easy</Text>

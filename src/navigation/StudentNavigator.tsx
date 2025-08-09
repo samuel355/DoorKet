@@ -32,7 +32,7 @@ const HomeStackNavigator = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          title: "ChopCart",
+          title: "DoorKet",
           headerRight: () => (
             <Ionicons
               name="notifications-outline"

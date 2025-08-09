@@ -1,4 +1,4 @@
-// ChopCart Type Definitions
+// DoorKet Type Definitions
 import { StackScreenProps } from "@react-navigation/stack";
 
 export type UserType = "student" | "runner" | "admin";
@@ -527,7 +527,7 @@ export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
 
 // Export default interface for convenience
-export default interface ChopCartTypes {
+export default interface DoorKetTypes {
   User: User;
   Order: Order;
   Item: Item;

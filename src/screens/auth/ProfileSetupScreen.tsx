@@ -227,7 +227,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
         full_name: registrationData.full_name,
         email:
           registrationData.email ||
-          `${tempPhone.replace(/[^\d]/g, "")}@chopcart.app`,
+          `${tempPhone.replace(/[^\d]/g, "")}@DoorKet.app`,
         user_type: userType,
         university: registrationData.university || "KNUST", // Default university to satisfy NOT NULL
         hall_hostel:

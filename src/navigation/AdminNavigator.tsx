@@ -27,7 +27,7 @@ const DashboardStackNavigator = () => {
         name="Dashboard"
         component={AdminDashboardScreen}
         options={{
-          title: "ChopCart Admin",
+          title: "DoorKet Admin",
           headerRight: () => (
             <Ionicons
               name="notifications-outline"

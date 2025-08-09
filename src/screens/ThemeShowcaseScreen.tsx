@@ -354,7 +354,7 @@ const ThemeShowcaseScreen: React.FC = () => {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={[typography.caption, { color: theme.text.tertiary, textAlign: 'center' }]}>
-            ChopCart Design System v2.0
+            DoorKet Design System v2.0
           </Text>
           <Text style={[typography.caption, { color: theme.text.tertiary, textAlign: 'center', marginTop: spacing.xs }]}>
             Modern • Accessible • Beautiful

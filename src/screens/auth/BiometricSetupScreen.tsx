@@ -134,13 +134,13 @@ const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
 
     switch (capabilities.biometricType) {
       case "faceId":
-        return "Use Face ID to quickly and securely access your ChopCart account.";
+        return "Use Face ID to quickly and securely access your DoorKet account.";
       case "fingerprint":
-        return "Use your fingerprint to quickly and securely access your ChopCart account.";
+        return "Use your fingerprint to quickly and securely access your DoorKet account.";
       case "iris":
-        return "Use iris scan to quickly and securely access your ChopCart account.";
+        return "Use iris scan to quickly and securely access your DoorKet account.";
       default:
-        return "Use biometric authentication to quickly and securely access your ChopCart account.";
+        return "Use biometric authentication to quickly and securely access your DoorKet account.";
     }
   };
 
@@ -175,7 +175,7 @@ const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
           </View>
           <Text style={styles.title}>Secure Your Account</Text>
           <Text style={styles.subtitle}>
-            Add an extra layer of security to your ChopCart account
+            Add an extra layer of security to your DoorKet account
           </Text>
         </View>
 
@@ -240,7 +240,7 @@ const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
           <Ionicons name="information-circle" size={20} color="#2196F3" />
           <Text style={styles.securityText}>
             Your biometric data is stored securely on your device and never
-            shared with ChopCart or third parties.
+            shared with DoorKet or third parties.
           </Text>
         </View>
 

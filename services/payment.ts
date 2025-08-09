@@ -18,8 +18,8 @@ const HUBTEL_CLIENT_SECRET = process.env.HUBTEL_CLIENT_SECRET;
 const PAYMENT_CONFIG = {
   MOMO_CALLBACK_URL: `${process.env.EXPO_PUBLIC_API_BASE_URL}/webhooks/hubtel/momo`,
   CARD_CALLBACK_URL: `${process.env.EXPO_PUBLIC_API_BASE_URL}/webhooks/hubtel/card`,
-  RETURN_URL: "chopcart://payment/success",
-  CANCEL_URL: "chopcart://payment/cancel",
+  RETURN_URL: "DoorKet://payment/success",
+  CANCEL_URL: "DoorKet://payment/cancel",
   TIMEOUT_MINUTES: 5,
 };
 
@@ -224,12 +224,12 @@ class PaymentService {
       const payload = {
         CustomerName: request.customerName,
         CustomerMsisdn: formattedPhone,
-        CustomerEmail: `order-${request.orderId}@chopcart.com`,
+        CustomerEmail: `order-${request.orderId}@DoorKet.com`,
         Channel: "mtn-gh", // Default to MTN, can be dynamic
         Amount: request.amount,
         PrimaryCallbackUrl: PAYMENT_CONFIG.MOMO_CALLBACK_URL,
         Description:
-          request.description || `ChopCart Order #${request.orderId}`,
+          request.description || `DoorKet Order #${request.orderId}`,
         ClientReference: request.orderId,
         FeesOnCustomer: true,
       };
@@ -290,15 +290,15 @@ class PaymentService {
 
       const payload = {
         CustomerName: request.customerName,
-        CustomerEmail: `order-${request.orderId}@chopcart.com`,
+        CustomerEmail: `order-${request.orderId}@DoorKet.com`,
         Amount: request.amount,
         CallbackUrl: PAYMENT_CONFIG.CARD_CALLBACK_URL,
         ReturnUrl: PAYMENT_CONFIG.RETURN_URL,
         CancelUrl: PAYMENT_CONFIG.CANCEL_URL,
         Description:
-          request.description || `ChopCart Order #${request.orderId}`,
+          request.description || `DoorKet Order #${request.orderId}`,
         ClientReference: request.orderId,
-        Logo: "https://chopcart.com/logo.png", // App logo URL
+        Logo: "https://DoorKet.com/logo.png", // App logo URL
         FeesOnCustomer: true,
       };
 
@@ -417,7 +417,7 @@ class PaymentService {
       customerNumber: customerData.phone || "",
       customerName: customerData.name,
       orderId: order.id,
-      description: `ChopCart Order #${order.order_number} - ${order.order_items?.length || 0} items`,
+      description: `DoorKet Order #${order.order_number} - ${order.order_items?.length || 0} items`,
     };
 
     switch (paymentMethod) {

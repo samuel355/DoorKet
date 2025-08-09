@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Keyboard, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ChopCart Custom Hooks Export
+// DoorKet Custom Hooks Export
 export { default as useCart, type UseCartReturn } from "./useCart";
 
 // Common hook patterns

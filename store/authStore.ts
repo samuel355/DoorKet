@@ -191,7 +191,7 @@ export const useAuthStore = create<AuthState>()(
                     data.user.user_metadata?.full_name ||
                     data.user.email?.split("@")[0] ||
                     "User",
-                  user_type: "student" as const,
+                  user_type: "admin" as const,
                   university: "KNUST", // Default university to satisfy NOT NULL constraint
                   is_verified: false,
                   is_active: true,
@@ -1006,7 +1006,7 @@ export const useAuthStore = create<AuthState>()(
         },
       }),
       {
-        name: "chopcart-auth",
+        name: "DoorKet-auth",
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Only persist essential data, not loading states or errors

@@ -1,6 +1,6 @@
--- ChopCart Database Schema
+-- DoorKet Database Schema
 -- Created: 2025-01-27
--- Description: Complete database schema for ChopCart food delivery app
+-- Description: Complete database schema for DoorKet food delivery app
 
 -- Enable UUID extension for ID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -427,7 +427,7 @@ WHERE c.name = 'Personal Care';
 INSERT INTO users (id, email, phone, full_name, user_type, university, hall_hostel, room_number, is_verified, rating, total_orders) VALUES
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'student1@example.com', '+233241234567', 'Kwame Asante', 'student', 'University of Ghana', 'Commonwealth Hall', 'A23', true, 0, 0),
 ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'runner1@example.com', '+233247654321', 'Akosua Mensah', 'runner', 'University of Ghana', NULL, NULL, true, 4.8, 145),
-('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin@chopcart.com', '+233501234567', 'Admin User', 'admin', 'University of Ghana', NULL, NULL, true, 0, 0);
+('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin@DoorKet.com', '+233501234567', 'Admin User', 'admin', 'University of Ghana', NULL, NULL, true, 0, 0);
 
 -- Insert sample order
 INSERT INTO orders (student_id, total_amount, service_fee, delivery_fee, delivery_address, payment_method, payment_status, status) VALUES

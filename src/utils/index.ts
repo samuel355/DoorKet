@@ -1,4 +1,4 @@
-// ChopCart Utility Functions
+// DoorKet Utility Functions
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform, Dimensions, Alert } from "react-native";
 import { COLORS, VALIDATION, STORAGE_KEYS, ERROR_MESSAGES } from "../constants";

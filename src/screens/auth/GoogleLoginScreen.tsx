@@ -86,7 +86,7 @@ const GoogleLoginScreen: React.FC<GoogleLoginScreenProps> = ({
           <Text style={styles.subtitle}>
             {isProcessing
               ? "Connecting to your Google account..."
-              : "Use your Google account to sign in to ChopCart"}
+              : "Use your Google account to sign in to DoorKet"}
           </Text>
         </View>
 

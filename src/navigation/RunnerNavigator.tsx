@@ -31,7 +31,7 @@ const DashboardStackNavigator = () => {
         name="Dashboard"
         component={RunnerDashboardScreen}
         options={{
-          title: "ChopCart Runner",
+          title: "DoorKet Runner",
           headerRight: () => (
             <Ionicons
               name="notifications-outline"

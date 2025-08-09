@@ -219,9 +219,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
 
   // Handle contact support
   const handleContactSupport = () => {
-    const email = "support@chopcart.com";
-    const subject = "ChopCart Support Request";
-    const body = `Hi ChopCart Support Team,\n\nUser ID: ${user?.id}\nUser Type: ${profile?.user_type}\nApp Version: ${APP_CONFIG.VERSION}\n\nDescription:\n`;
+    const email = "support@DoorKet.com";
+    const subject = "DoorKet Support Request";
+    const body = `Hi DoorKet Support Team,\n\nUser ID: ${user?.id}\nUser Type: ${profile?.user_type}\nApp Version: ${APP_CONFIG.VERSION}\n\nDescription:\n`;
 
     const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
@@ -247,7 +247,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
 
   // Handle privacy policy
   const handlePrivacyPolicy = () => {
-    const url = "https://chopcart.com/privacy";
+    const url = "https://DoorKet.com/privacy";
     Linking.openURL(url).catch(() => {
       Alert.alert("Error", "Failed to open privacy policy");
     });
@@ -255,7 +255,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
 
   // Handle terms of service
   const handleTermsOfService = () => {
-    const url = "https://chopcart.com/terms";
+    const url = "https://DoorKet.com/terms";
     Linking.openURL(url).catch(() => {
       Alert.alert("Error", "Failed to open terms of service");
     });
@@ -506,7 +506,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
 
             {renderActionSetting(
               "Rate App",
-              "Rate ChopCart on the app store",
+              "Rate DoorKet on the app store",
               () =>
                 Alert.alert("Coming Soon", "App rating will be available soon"),
               "star",
