@@ -1,489 +1,770 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
-  FlatList,
-  RefreshControl,
+  ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  Dimensions,
+  Animated,
+  Easing,
+  StatusBar,
   Image,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Text,
-  Searchbar,
-  Card,
-  Button,
-  Chip,
-  ActivityIndicator,
-} from "react-native-paper";
+import { Text, Searchbar } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { RouteProp } from "@react-navigation/native";
 
-import { EmptyState, ErrorState, Loading } from "../../components/common";
-import { COLORS, SPACING, FONTS, BORDER_RADIUS } from "../../constants";
-import { useCart } from "@/app/hooks";
-import { Category, Item } from "@/types";
-import { SupabaseService } from "@/services/supabase";
+import { Loading, EmptyState } from "../../components/common";
+import { Item, StudentStackParamList } from "@/types";
+import { ItemService } from "@/services/supabase";
+import { ColorPalette } from "../../theme/colors";
+import { spacing, borderRadius } from "../../theme/styling";
+
+type CategoryItemsScreenNavigationProp = StackNavigationProp<
+  StudentStackParamList,
+  "CategoryItems"
+>;
+
+type CategoryItemsScreenRouteProp = RouteProp<
+  StudentStackParamList,
+  "CategoryItems"
+>;
 
 interface CategoryItemsScreenProps {
-  navigation: any;
-  route: {
-    params: {
-      categoryId: string;
-      categoryName: string;
-    };
-  };
+  navigation: CategoryItemsScreenNavigationProp;
+  route: CategoryItemsScreenRouteProp;
 }
+
+const { width, height } = Dimensions.get("window");
+const HEADER_HEIGHT = height * 0.25;
+const ITEM_WIDTH = (width - 60) / 2;
 
 const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
   navigation,
   route,
 }) => {
   const { categoryId, categoryName } = route.params;
-  const { addItem, loading: cartLoading } = useCart();
-
-  // State
   const [items, setItems] = useState<Item[]>([]);
   const [filteredItems, setFilteredItems] = useState<Item[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [category, setCategory] = useState<Category | null>(null);
 
-  // Filter options
-  const filterOptions = [
-    { id: "price_low", label: "Low Price", icon: "trending-down" },
-    { id: "price_high", label: "High Price", icon: "trending-up" },
-    { id: "name_az", label: "A-Z", icon: "text" },
-    { id: "name_za", label: "Z-A", icon: "text" },
-  ];
+  // Animation values
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const cardScale = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
 
-  // Load items
-  const loadItems = useCallback(
-    async (showRefreshing = false) => {
-      try {
-        if (showRefreshing) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-        setError(null);
+  useEffect(() => {
+    loadCategoryItems();
+    startAnimations();
+  }, [categoryId]);
 
-        const { data, error } =
-          await SupabaseService.getItemsByCategory(categoryId);
+  useEffect(() => {
+    filterItems();
+  }, [searchQuery, items]);
 
-        if (error) {
-          throw new Error(error);
-        }
+  const startAnimations = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
 
-        setItems(data || []);
-        setFilteredItems(data || []);
+    // Floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
 
-        // Get category info if we have items
-        if (data && data.length > 0 && data[0].category) {
-          setCategory(data[0].category);
-        }
-      } catch (err: any) {
-        console.error("Error loading items:", err);
-        setError(err.message || "Failed to load items");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [categoryId],
-  );
-
-  // Filter and search items
-  const filterItems = useCallback(() => {
-    let filtered = [...items];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.description?.toLowerCase().includes(query),
-      );
-    }
-
-    // Sort filters
-    if (selectedFilters.includes("price_low")) {
-      filtered.sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
-    } else if (selectedFilters.includes("price_high")) {
-      filtered.sort((a, b) => (b.base_price || 0) - (a.base_price || 0));
-    } else if (selectedFilters.includes("name_az")) {
-      filtered.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (selectedFilters.includes("name_za")) {
-      filtered.sort((a, b) => b.name.localeCompare(a.name));
-    }
-
-    setFilteredItems(filtered);
-  }, [items, searchQuery, selectedFilters]);
-
-  // Handle filter toggle
-  const toggleFilter = (filterId: string) => {
-    setSelectedFilters((prev) => {
-      // Remove other sorting filters if selecting a new sort
-      const sortFilters = ["price_low", "price_high", "name_az", "name_za"];
-      if (sortFilters.includes(filterId)) {
-        const withoutSorts = prev.filter((id) => !sortFilters.includes(id));
-        return prev.includes(filterId)
-          ? withoutSorts
-          : [...withoutSorts, filterId];
-      }
-      return prev.includes(filterId)
-        ? prev.filter((id) => id !== filterId)
-        : [...prev, filterId];
-    });
-  };
-
-  // Handle add to cart
-  const handleAddToCart = async (item: Item) => {
+  const loadCategoryItems = useCallback(async () => {
     try {
-      const success = await addItem(item, 1);
-      if (success) {
-        Alert.alert("Success", `${item.name} added to cart!`);
+      setLoading(true);
+      const { data, error } = await ItemService.getItemsByCategory(categoryId);
+      if (error) {
+        console.error("Error loading category items:", error);
+        return;
       }
+      setItems(data || []);
     } catch (error) {
-      console.error("Error adding to cart:", error);
-      Alert.alert("Error", "Failed to add item to cart");
+      console.error("Error loading category items:", error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [categoryId]);
 
-  // Handle item press
+  const filterItems = useCallback(() => {
+    if (!searchQuery.trim()) {
+      setFilteredItems(items);
+    } else {
+      const filtered = items.filter((item) =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
+      setFilteredItems(filtered);
+    }
+  }, [searchQuery, items]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCategoryItems();
+    setRefreshing(false);
+  }, [loadCategoryItems]);
+
   const handleItemPress = (item: Item) => {
     navigation.navigate("ItemDetails", { itemId: item.id });
   };
 
-  // Effects
-  useEffect(() => {
-    filterItems();
-  }, [filterItems]);
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -15],
+  });
 
-  useFocusEffect(
-    useCallback(() => {
-      loadItems();
-    }, [loadItems]),
-  );
+  const renderHeader = () => (
+    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
+      <LinearGradient
+        colors={[
+          ColorPalette.primary[600],
+          ColorPalette.primary[500],
+          ColorPalette.secondary[500],
+          ColorPalette.accent[500],
+        ]}
+        locations={[0, 0.4, 0.7, 1]}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        {/* Floating decorative elements */}
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element1,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element2,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element3,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
 
-  // Render item
-  const renderItem = ({ item }: { item: Item }) => (
-    <Card style={styles.itemCard} onPress={() => handleItemPress(item)}>
-      <View style={styles.itemContent}>
-        {item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.itemImage} />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Ionicons name="image-outline" size={32} color={COLORS.GRAY_400} />
-          </View>
-        )}
+        <SafeAreaView style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.2)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButton}
+              >
+                <Ionicons name="arrow-back" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
 
-        <View style={styles.itemInfo}>
-          <Text style={styles.itemName} numberOfLines={2}>
-            {item.name}
-          </Text>
-          {item.description && (
-            <Text style={styles.itemDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
-          )}
-          <View style={styles.itemMeta}>
-            <Text style={styles.itemUnit}>{item.unit}</Text>
-            {item.base_price && (
-              <Text style={styles.itemPrice}>
-                GHS {item.base_price.toFixed(2)}
+            <View style={styles.titleContainer}>
+              <Text style={styles.headerTitle}>{categoryName}</Text>
+              <Text style={styles.headerSubtitle}>
+                {filteredItems.length} items available
               </Text>
-            )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => {
+                // Could add filter/sort options here
+              }}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.2)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButton}
+              >
+                <Ionicons name="grid-outline" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
-        </View>
 
-        <View style={styles.itemActions}>
-          <Button
-            mode="contained"
-            onPress={() => handleAddToCart(item)}
-            loading={cartLoading}
-            disabled={!item.is_available || cartLoading}
-            style={styles.addButton}
-            contentStyle={styles.addButtonContent}
-            labelStyle={styles.addButtonLabel}
-          >
-            {item.is_available ? "Add" : "Unavailable"}
-          </Button>
-        </View>
-      </View>
-
-      {!item.is_available && <View style={styles.unavailableOverlay} />}
-    </Card>
+          <View style={styles.searchContainer}>
+            <Searchbar
+              placeholder="Search items..."
+              onChangeText={setSearchQuery}
+              value={searchQuery}
+              style={styles.searchBar}
+              inputStyle={styles.searchInput}
+              icon={() => (
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color={ColorPalette.primary[500]}
+                />
+              )}
+              iconColor={ColorPalette.primary[500]}
+            />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </Animated.View>
   );
 
-  // Render filter chip
-  const renderFilterChip = ({
-    item: filter,
-  }: {
-    item: (typeof filterOptions)[0];
-  }) => (
-    <Chip
-      key={filter.id}
-      selected={selectedFilters.includes(filter.id)}
-      onPress={() => toggleFilter(filter.id)}
-      icon={filter.icon}
+  const renderItem = (item: Item, index: number) => (
+    <Animated.View
+      key={item.id}
       style={[
-        styles.filterChip,
-        selectedFilters.includes(filter.id) && styles.selectedFilterChip,
-      ]}
-      textStyle={[
-        styles.filterChipText,
-        selectedFilters.includes(filter.id) && styles.selectedFilterChipText,
+        styles.itemCard,
+        {
+          opacity: fadeAnim,
+          transform: [
+            { translateY: slideAnim },
+            {
+              scale: cardScale.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1],
+              }),
+            },
+          ],
+        },
       ]}
     >
-      {filter.label}
-    </Chip>
+      <TouchableOpacity onPress={() => handleItemPress(item)}>
+        <LinearGradient
+          colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+          style={styles.itemGradient}
+        >
+          <View style={styles.itemImageContainer}>
+            {item.image_url ? (
+              <Image
+                source={{ uri: item.image_url }}
+                style={styles.itemImage}
+              />
+            ) : (
+              <LinearGradient
+                colors={[ColorPalette.neutral[100], ColorPalette.neutral[50]]}
+                style={styles.imagePlaceholder}
+              >
+                <Ionicons
+                  name="image-outline"
+                  size={32}
+                  color={ColorPalette.neutral[400]}
+                />
+              </LinearGradient>
+            )}
+
+            {item.is_available ? (
+              <View style={styles.availableBadge}>
+                <LinearGradient
+                  colors={[
+                    ColorPalette.success[500],
+                    ColorPalette.success[600],
+                  ]}
+                  style={styles.badgeGradient}
+                >
+                  <Ionicons name="checkmark" size={12} color="#ffffff" />
+                </LinearGradient>
+              </View>
+            ) : (
+              <View style={styles.unavailableBadge}>
+                <LinearGradient
+                  colors={[ColorPalette.error[500], ColorPalette.error[600]]}
+                  style={styles.badgeGradient}
+                >
+                  <Ionicons name="close" size={12} color="#ffffff" />
+                </LinearGradient>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.itemContent}>
+            <Text style={styles.itemName} numberOfLines={2}>
+              {item.name}
+            </Text>
+
+            {item.description && (
+              <Text style={styles.itemDescription} numberOfLines={2}>
+                {item.description}
+              </Text>
+            )}
+
+            <View style={styles.itemFooter}>
+              <View style={styles.priceContainer}>
+                <Text style={styles.priceLabel}>Price</Text>
+                <Text style={styles.itemPrice}>
+                  GHS {item.base_price ? item.base_price.toFixed(2) : "0.00"}
+                </Text>
+              </View>
+
+              {item.unit && (
+                <View style={styles.unitContainer}>
+                  <Text style={styles.unitLabel}>Unit</Text>
+                  <Text style={styles.itemUnit}>{item.unit}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.itemActions}>
+              <TouchableOpacity
+                style={styles.addToCartButton}
+                onPress={() => {
+                  // Add to cart functionality
+                  console.log("Add to cart:", item.id);
+                }}
+              >
+                <LinearGradient
+                  colors={[
+                    ColorPalette.primary[500],
+                    ColorPalette.primary[600],
+                  ]}
+                  style={styles.addButtonGradient}
+                >
+                  <Ionicons name="add" size={16} color="#ffffff" />
+                  <Text style={styles.addButtonText}>Add</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.viewButton}
+                onPress={() => handleItemPress(item)}
+              >
+                <LinearGradient
+                  colors={[ColorPalette.neutral[100], ColorPalette.neutral[50]]}
+                  style={styles.viewButtonGradient}
+                >
+                  <Ionicons
+                    name="eye-outline"
+                    size={16}
+                    color={ColorPalette.neutral[600]}
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
   );
 
-  // Loading state
+  const renderEmptyState = () => (
+    <Animated.View
+      style={[
+        styles.emptyContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+        style={styles.emptyCard}
+      >
+        <LinearGradient
+          colors={[ColorPalette.neutral[100], ColorPalette.neutral[50]]}
+          style={styles.emptyIcon}
+        >
+          <Ionicons
+            name="bag-outline"
+            size={64}
+            color={ColorPalette.neutral[400]}
+          />
+        </LinearGradient>
+        <Text style={styles.emptyTitle}>No items found</Text>
+        <Text style={styles.emptySubtitle}>
+          {searchQuery
+            ? "Try adjusting your search terms"
+            : "This category doesn't have any items yet"}
+        </Text>
+        {!searchQuery && (
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => navigation.navigate("Categories")}
+          >
+            <LinearGradient
+              colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
+              style={styles.emptyButtonGradient}
+            >
+              <Text style={styles.emptyButtonText}>Browse Categories</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </LinearGradient>
+    </Animated.View>
+  );
+
   if (loading) {
     return <Loading text="Loading items..." />;
   }
 
-  // Error state
-  if (error) {
-    return (
-      <ErrorState
-        title="Failed to Load Items"
-        subtitle={error}
-        onActionPress={() => loadItems()}
-      />
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.categoryTitle}>{categoryName}</Text>
-        {category?.description && (
-          <Text style={styles.categoryDescription}>{category.description}</Text>
-        )}
-      </View>
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={ColorPalette.primary[600]}
+      />
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Search items..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          style={styles.searchBar}
-          inputStyle={styles.searchInput}
-          icon="magnify"
-          clearIcon="close"
-        />
-      </View>
+      {renderHeader()}
 
-      {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <FlatList
-          data={filterOptions}
-          renderItem={renderFilterChip}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContent}
-        />
-      </View>
-
-      {/* Items List */}
-      <FlatList
-        data={filteredItems}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => loadItems(true)}
-            colors={[COLORS.PRIMARY]}
-            tintColor={COLORS.PRIMARY}
-          />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title="No Items Found"
-            subtitle={
-              searchQuery.trim()
-                ? `No items match "${searchQuery}"`
-                : "No items available in this category"
-            }
-            icon="basket-outline"
-            actionText={
-              searchQuery.trim() ? "Clear Search" : "Browse Categories"
-            }
-            onActionPress={() => {
-              if (searchQuery.trim()) {
-                setSearchQuery("");
-              } else {
-                navigation.goBack();
-              }
-            }}
+            onRefresh={handleRefresh}
+            colors={[ColorPalette.primary[500]]}
+            tintColor={ColorPalette.primary[500]}
           />
         }
         showsVerticalScrollIndicator={false}
-      />
-    </SafeAreaView>
+      >
+        {filteredItems.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <View style={styles.itemsGrid}>
+            {filteredItems.map((item, index) => (
+              <View key={item.id} style={styles.itemWrapper}>
+                {renderItem(item, index)}
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: ColorPalette.neutral[50],
   },
-  header: {
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD,
-    backgroundColor: COLORS.WHITE,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER_LIGHT,
+
+  // Header styles
+  headerContainer: {
+    height: HEADER_HEIGHT,
+    position: "relative",
   },
-  categoryTitle: {
-    fontSize: FONTS.SIZE.XXL,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.SM,
+  headerGradient: {
+    flex: 1,
+    paddingTop: 0,
   },
-  categoryDescription: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_SECONDARY,
-    lineHeight: FONTS.LINE_HEIGHT.RELAXED * FONTS.SIZE.MD,
+  floatingElement: {
+    position: "absolute",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.full,
+  },
+  element1: {
+    width: 60,
+    height: 60,
+    top: height * 0.08,
+    left: width * 0.1,
+  },
+  element2: {
+    width: 40,
+    height: 40,
+    top: height * 0.05,
+    right: width * 0.15,
+  },
+  element3: {
+    width: 80,
+    height: 80,
+    top: height * 0.12,
+    right: width * 0.05,
+  },
+  headerContent: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    justifyContent: "space-between",
+    paddingBottom: spacing.lg,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: spacing.md,
+  },
+  backButton: {},
+  menuButton: {},
+  headerButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: ColorPalette.pure.white,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: spacing.xs,
+    textAlign: "center",
   },
   searchContainer: {
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD,
-    backgroundColor: COLORS.WHITE,
+    marginTop: spacing.lg,
   },
   searchBar: {
-    elevation: 0,
-    backgroundColor: COLORS.GRAY_100,
-    borderRadius: BORDER_RADIUS.LG,
+    backgroundColor: ColorPalette.pure.white,
+    elevation: 8,
+    shadowColor: "rgba(0, 0, 0, 0.2)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    borderRadius: borderRadius.xl,
   },
   searchInput: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_PRIMARY,
+    fontSize: 16,
+    color: ColorPalette.neutral[700],
   },
-  filtersContainer: {
-    backgroundColor: COLORS.WHITE,
-    paddingVertical: SPACING.SM,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER_LIGHT,
+
+  // Content styles
+  scrollView: {
+    flex: 1,
+    marginTop: -spacing.xl,
   },
-  filtersContent: {
-    paddingHorizontal: SPACING.LG,
+  scrollContent: {
+    paddingBottom: spacing.xxxxl,
+    paddingTop: spacing.xl,
   },
-  filterChip: {
-    marginRight: SPACING.SM,
-    backgroundColor: COLORS.GRAY_100,
-    borderColor: COLORS.BORDER,
+
+  // Items grid
+  itemsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: spacing.lg,
+    justifyContent: "space-between",
   },
-  selectedFilterChip: {
-    backgroundColor: COLORS.PRIMARY_LIGHT,
-    borderColor: COLORS.PRIMARY,
+  itemWrapper: {
+    width: ITEM_WIDTH,
+    marginBottom: spacing.lg,
   },
-  filterChipText: {
-    color: COLORS.TEXT_SECONDARY,
-    fontSize: FONTS.SIZE.SM,
-  },
-  selectedFilterChipText: {
-    color: COLORS.PRIMARY,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
-  },
-  listContent: {
-    padding: SPACING.LG,
-    flexGrow: 1,
-  },
-  itemCard: {
-    marginBottom: SPACING.MD,
-    borderRadius: BORDER_RADIUS.LG,
-    elevation: 2,
-    backgroundColor: COLORS.WHITE,
+  itemCard: {},
+  itemGradient: {
+    borderRadius: borderRadius.lg,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
     overflow: "hidden",
   },
-  itemContent: {
-    flexDirection: "row",
-    padding: SPACING.MD,
-    alignItems: "center",
+  itemImageContainer: {
+    position: "relative",
+    height: 140,
   },
   itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDER_RADIUS.MD,
-    backgroundColor: COLORS.GRAY_100,
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
-  placeholderImage: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDER_RADIUS.MD,
-    backgroundColor: COLORS.GRAY_100,
+  imagePlaceholder: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
-  itemInfo: {
-    flex: 1,
-    marginLeft: SPACING.MD,
-    marginRight: SPACING.SM,
+  availableBadge: {
+    position: "absolute",
+    top: spacing.sm,
+    right: spacing.sm,
+  },
+  unavailableBadge: {
+    position: "absolute",
+    top: spacing.sm,
+    right: spacing.sm,
+  },
+  badgeGradient: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  itemContent: {
+    padding: spacing.md,
   },
   itemName: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.XS,
+    fontSize: 16,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.xs,
+    lineHeight: 20,
   },
   itemDescription: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    lineHeight: FONTS.LINE_HEIGHT.NORMAL * FONTS.SIZE.SM,
-    marginBottom: SPACING.SM,
+    fontSize: 12,
+    color: ColorPalette.neutral[600],
+    marginBottom: spacing.sm,
+    lineHeight: 16,
   },
-  itemMeta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  itemFooter: {
+    marginBottom: spacing.sm,
   },
-  itemUnit: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    fontStyle: "italic",
+  priceContainer: {
+    marginBottom: spacing.xs,
+  },
+  priceLabel: {
+    fontSize: 10,
+    color: ColorPalette.neutral[500],
+    marginBottom: 2,
   },
   itemPrice: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.PRIMARY,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: ColorPalette.primary[600],
+  },
+  unitContainer: {},
+  unitLabel: {
+    fontSize: 10,
+    color: ColorPalette.neutral[500],
+    marginBottom: 2,
+  },
+  itemUnit: {
+    fontSize: 12,
+    color: ColorPalette.neutral[600],
+    fontWeight: "500",
   },
   itemActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  addToCartButton: {
+    flex: 1,
+  },
+  addButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
   },
-  addButton: {
-    borderRadius: BORDER_RADIUS.SM,
-    minWidth: 80,
+  addButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: ColorPalette.pure.white,
   },
-  addButtonContent: {
+  viewButton: {},
+  viewButtonGradient: {
+    width: 36,
     height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  addButtonLabel: {
-    fontSize: FONTS.SIZE.SM,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
+
+  // Empty state styles
+  emptyContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxxxl,
   },
-  unavailableOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    borderRadius: BORDER_RADIUS.LG,
+  emptyCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xxxxl,
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  emptyIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: ColorPalette.neutral[600],
+    textAlign: "center",
+    marginBottom: spacing.xl,
+  },
+  emptyButton: {
+    marginTop: spacing.lg,
+  },
+  emptyButtonGradient: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  emptyButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.pure.white,
   },
 });
 

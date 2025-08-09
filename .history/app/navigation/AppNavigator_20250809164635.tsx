@@ -13,10 +13,10 @@ const AppNavigator: React.FC = () => {
   // Show auth loading or auth flow
   if (isLoading || !isAuthenticated || !profile) {
     return (
-      <>
+      <NavigationContainer>
         <StatusBar style="auto" />
         <AuthNavigator />
-      </>
+      </NavigationContainer>
     );
   }
 

@@ -1,4 +1,5 @@
 import { useAuth } from "@/store/authStore";
+import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 
@@ -13,10 +14,10 @@ const AppNavigator: React.FC = () => {
   // Show auth loading or auth flow
   if (isLoading || !isAuthenticated || !profile) {
     return (
-      <>
+      <NavigationContainer>
         <StatusBar style="auto" />
         <AuthNavigator />
-      </>
+      </NavigationContainer>
     );
   }
 
@@ -35,10 +36,10 @@ const AppNavigator: React.FC = () => {
   };
 
   return (
-    <>
+    <NavigationContainer>
       <StatusBar style="auto" />
       {getCurrentNavigator()}
-    </>
+    </NavigationContainer>
   );
 };
 

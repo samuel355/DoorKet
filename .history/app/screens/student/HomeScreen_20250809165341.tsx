@@ -1,26 +1,25 @@
-import { ItemService, OrderService } from "@/services/supabase";
-import { useAuth } from "@/store/authStore";
-import { Category, Order, StudentStackParamList } from "@/types";
-import { Ionicons } from "@expo/vector-icons";
-import { StackNavigationProp } from "@react-navigation/stack";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-    Animated,
-    Dimensions,
-    Easing,
-    RefreshControl,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  View,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  StatusBar,
+  Dimensions,
+  TouchableOpacity,
+  Animated,
+  Easing,
 } from "react-native";
-import { Searchbar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Text, Searchbar } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { Category, Order, StudentStackParamList } from "@/types";
+import { useAuth } from "@/store/authStore";
+import { ItemService, OrderService } from "@/services/supabase";
 import { ColorPalette } from "../../theme/colors";
-import { borderRadius, spacing } from "../../theme/styling";
+import { spacing, borderRadius } from "../../theme/styling";
 
 type HomeScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -360,7 +359,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => router.push("/student/categories")}
+          onPress={() => navigation.navigate("Categories")}
         >
           <LinearGradient
             colors={[ColorPalette.accent[100], ColorPalette.accent[50]]}
@@ -403,7 +402,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     >
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Shop by Category</Text>
-        <TouchableOpacity onPress={() => router.push("/student/categories")}>
+        <TouchableOpacity onPress={() => navigation.navigate("Categories")}>
           <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
       </View>

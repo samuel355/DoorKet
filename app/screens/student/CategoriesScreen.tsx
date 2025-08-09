@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -6,25 +6,21 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  FlatList,
+  Animated,
+  Easing,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Text,
-  Searchbar,
-  Card,
-  Surface,
-  useTheme,
-  Button,
-  Chip,
-} from "react-native-paper";
+import { Text, Searchbar } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { Loading, EmptyState, ErrorState } from "../../components/common";
-import { COLORS, SPACING, FONTS, BORDER_RADIUS } from "../../constants";
-import { debounce } from "../../utils";
+
+import { Loading, EmptyState } from "../../components/common";
 import { Category, StudentStackParamList } from "@/types";
 import { ItemService } from "@/services/supabase";
+import { ColorPalette } from "../../theme/colors";
+import { spacing, borderRadius } from "../../theme/styling";
 
 type CategoriesScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -35,109 +31,112 @@ interface CategoriesScreenProps {
   navigation: CategoriesScreenNavigationProp;
 }
 
-const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 48) / 2; // 2 columns with margins
-
-type ViewMode = "grid" | "list";
-type SortOption = "name" | "popular" | "recent";
+const { width, height } = Dimensions.get("window");
+const HEADER_HEIGHT = height * 0.25;
+const CARD_WIDTH = (width - 60) / 2;
 
 const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
-  const theme = useTheme();
-
-  // State
   const [categories, setCategories] = useState<Category[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [sortBy, setSortBy] = useState<SortOption>("name");
-  const [showActiveOnly, setShowActiveOnly] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Load categories on mount
+  // Animation values
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const cardScale = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadCategories();
+    startAnimations();
   }, []);
 
-  // Filter categories when search query or filters change
   useEffect(() => {
     filterCategories();
-  }, [categories, searchQuery, sortBy, showActiveOnly]);
+  }, [searchQuery, categories]);
 
-  const loadCategories = async (showLoader: boolean = true) => {
+  const startAnimations = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+
+    // Floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
+
+  const loadCategories = useCallback(async () => {
     try {
-      if (showLoader) {
-        setIsLoading(true);
+      setLoading(true);
+      const { data, error } = await ItemService.getCategories();
+      if (error) {
+        console.error("Error loading categories:", error);
+        return;
       }
-      setError(null);
-
-      const { data, error: apiError } = await ItemService.getCategories();
-
-      if (apiError) {
-        throw new Error(apiError);
-      }
-
       setCategories(data || []);
-    } catch (err: any) {
-      console.error("Error loading categories:", err);
-      setError(err.message || "Failed to load categories");
+    } catch (error) {
+      console.error("Error loading categories:", error);
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      setLoading(false);
     }
-  };
+  }, []);
 
   const filterCategories = useCallback(() => {
-    let filtered = [...categories];
-
-    // Filter by active status
-    if (showActiveOnly) {
-      filtered = filtered.filter((category) => category.is_active);
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (category) =>
-          category.name.toLowerCase().includes(query) ||
-          category.description?.toLowerCase().includes(query),
+    if (!searchQuery.trim()) {
+      setFilteredCategories(categories);
+    } else {
+      const filtered = categories.filter((category) =>
+        category.name.toLowerCase().includes(searchQuery.toLowerCase()),
       );
+      setFilteredCategories(filtered);
     }
+  }, [searchQuery, categories]);
 
-    // Sort categories
-    switch (sortBy) {
-      case "name":
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "popular":
-        // Sort by sort_order for now (could be item count in future)
-        filtered.sort((a, b) => a.sort_order - b.sort_order);
-        break;
-      case "recent":
-        filtered.sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        );
-        break;
-    }
-
-    setFilteredCategories(filtered);
-  }, [categories, searchQuery, sortBy, showActiveOnly]);
-
-  // Debounced search
-  const debouncedSearch = useCallback(
-    debounce((query: string) => {
-      setSearchQuery(query);
-    }, 300),
-    [],
-  );
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadCategories(false);
-  };
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCategories();
+    setRefreshing(false);
+  }, [loadCategories]);
 
   const handleCategoryPress = (category: Category) => {
     navigation.navigate("CategoryItems", {
@@ -146,357 +145,452 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
     });
   };
 
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) {
-      // Could navigate to search results or apply search
-      filterCategories();
-    }
-  };
-
-  const toggleViewMode = () => {
-    setViewMode((prev) => (prev === "grid" ? "list" : "grid"));
-  };
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -15],
+  });
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerTop}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Categories</Text>
-        <TouchableOpacity
-          style={styles.viewModeButton}
-          onPress={toggleViewMode}
-        >
-          <Ionicons
-            name={viewMode === "grid" ? "list" : "grid"}
-            size={24}
-            color={COLORS.TEXT_PRIMARY}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <Searchbar
-        style={styles.searchBar}
-        placeholder="Search categories..."
-        value={searchQuery}
-        onChangeText={debouncedSearch}
-        onSubmitEditing={handleSearchSubmit}
-        icon="search"
-        clearIcon="close"
-      />
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersContainer}
-        contentContainerStyle={styles.filtersContent}
+    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
+      <LinearGradient
+        colors={[
+          ColorPalette.primary[600],
+          ColorPalette.primary[500],
+          ColorPalette.secondary[500],
+          ColorPalette.accent[500],
+        ]}
+        locations={[0, 0.4, 0.7, 1]}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <Chip
-          selected={sortBy === "name"}
-          onPress={() => setSortBy("name")}
-          style={styles.filterChip}
-        >
-          A-Z
-        </Chip>
-        <Chip
-          selected={sortBy === "popular"}
-          onPress={() => setSortBy("popular")}
-          style={styles.filterChip}
-        >
-          Popular
-        </Chip>
-        <Chip
-          selected={sortBy === "recent"}
-          onPress={() => setSortBy("recent")}
-          style={styles.filterChip}
-        >
-          Recent
-        </Chip>
-        <Chip
-          selected={showActiveOnly}
-          onPress={() => setShowActiveOnly(!showActiveOnly)}
-          style={styles.filterChip}
-        >
-          Active Only
-        </Chip>
-      </ScrollView>
-    </View>
-  );
+        {/* Floating decorative elements */}
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element1,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element2,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element3,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
 
-  const renderCategoryGridItem = ({ item }: { item: Category }) => (
-    <TouchableOpacity
-      style={styles.gridCategoryContainer}
-      onPress={() => handleCategoryPress(item)}
-      activeOpacity={0.7}
-    >
-      <Card style={styles.gridCategoryCard}>
-        <Card.Content style={styles.gridCategoryContent}>
-          <View
-            style={[
-              styles.categoryIcon,
-              { backgroundColor: `${item.color_code || COLORS.PRIMARY}15` },
-            ]}
-          >
-            <Ionicons
-              name={(item.icon_name as any) || "basket"}
-              size={32}
-              color={item.color_code || COLORS.PRIMARY}
-            />
-          </View>
-          <Text style={styles.gridCategoryName} numberOfLines={2}>
-            {item.name}
-          </Text>
-          {item.description && (
-            <Text style={styles.gridCategoryDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
-    </TouchableOpacity>
-  );
+        <SafeAreaView style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.2)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButton}
+              >
+                <Ionicons name="arrow-back" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
 
-  const renderCategoryListItem = ({ item }: { item: Category }) => (
-    <TouchableOpacity
-      style={styles.listCategoryContainer}
-      onPress={() => handleCategoryPress(item)}
-      activeOpacity={0.7}
-    >
-      <Card style={styles.listCategoryCard}>
-        <Card.Content style={styles.listCategoryContent}>
-          <View
-            style={[
-              styles.listCategoryIcon,
-              { backgroundColor: `${item.color_code || COLORS.PRIMARY}15` },
-            ]}
-          >
-            <Ionicons
-              name={(item.icon_name as any) || "basket"}
-              size={24}
-              color={item.color_code || COLORS.PRIMARY}
-            />
-          </View>
-          <View style={styles.listCategoryInfo}>
-            <Text style={styles.listCategoryName}>{item.name}</Text>
-            {item.description && (
-              <Text style={styles.listCategoryDescription} numberOfLines={2}>
-                {item.description}
+            <View style={styles.titleContainer}>
+              <Text style={styles.headerTitle}>Shop by Category</Text>
+              <Text style={styles.headerSubtitle}>
+                {filteredCategories.length} categories available
               </Text>
-            )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => {
+                // Could add filter/sort options here
+              }}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.2)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButton}
+              >
+                <Ionicons name="options-outline" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={COLORS.TEXT_SECONDARY}
-          />
-        </Card.Content>
-      </Card>
-    </TouchableOpacity>
+
+          <View style={styles.searchContainer}>
+            <Searchbar
+              placeholder="Search categories..."
+              onChangeText={setSearchQuery}
+              value={searchQuery}
+              style={styles.searchBar}
+              inputStyle={styles.searchInput}
+              icon={() => (
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color={ColorPalette.primary[500]}
+                />
+              )}
+              iconColor={ColorPalette.primary[500]}
+            />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </Animated.View>
   );
 
-  const renderEmptyState = () => {
-    if (searchQuery.trim()) {
-      return (
-        <EmptyState
-          icon="search"
-          title="No Categories Found"
-          subtitle={`No categories match "${searchQuery}"`}
-          actionText="Clear Search"
-          onActionPress={() => setSearchQuery("")}
-        />
-      );
-    }
+  const renderCategory = (category: Category, index: number) => (
+    <Animated.View
+      key={category.id}
+      style={[
+        styles.categoryCard,
+        {
+          opacity: fadeAnim,
+          transform: [
+            { translateY: slideAnim },
+            {
+              scale: cardScale.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity onPress={() => handleCategoryPress(category)}>
+        <LinearGradient
+          colors={[
+            `${category.color_code || ColorPalette.primary[500]}20`,
+            `${category.color_code || ColorPalette.primary[500]}10`,
+            ColorPalette.pure.white,
+          ]}
+          style={styles.categoryGradient}
+        >
+          <View style={styles.categoryContent}>
+            <View
+              style={[
+                styles.categoryIcon,
+                {
+                  backgroundColor: `${category.color_code || ColorPalette.primary[500]}15`,
+                },
+              ]}
+            >
+              <Ionicons
+                name={(category.icon_name as any) || "grid"}
+                size={32}
+                color={category.color_code || ColorPalette.primary[500]}
+              />
+            </View>
 
-    return (
-      <EmptyState
-        icon="grid"
-        title="No Categories Available"
-        subtitle="Categories will appear here when they're added"
-        actionText="Refresh"
-        onActionPress={() => loadCategories()}
-      />
-    );
-  };
+            <View style={styles.categoryInfo}>
+              <Text style={styles.categoryName} numberOfLines={2}>
+                {category.name}
+              </Text>
+              {category.description && (
+                <Text style={styles.categoryDescription} numberOfLines={3}>
+                  {category.description}
+                </Text>
+              )}
+            </View>
 
-  const renderContent = () => {
-    if (isLoading) {
-      return <Loading text="Loading categories..." />;
-    }
+            <View style={styles.categoryArrow}>
+              <LinearGradient
+                colors={[
+                  `${category.color_code || ColorPalette.primary[500]}20`,
+                  `${category.color_code || ColorPalette.primary[500]}10`,
+                ]}
+                style={styles.arrowContainer}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={category.color_code || ColorPalette.primary[500]}
+                />
+              </LinearGradient>
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
-    if (error) {
-      return (
-        <ErrorState
-          title="Failed to Load Categories"
-          subtitle={error}
-          actionText="Try Again"
-          onActionPress={() => loadCategories()}
-        />
-      );
-    }
-
-    if (filteredCategories.length === 0) {
-      return renderEmptyState();
-    }
-
-    return (
-      <FlatList
-        data={filteredCategories}
-        renderItem={
-          viewMode === "grid" ? renderCategoryGridItem : renderCategoryListItem
-        }
-        keyExtractor={(item) => item.id}
-        numColumns={viewMode === "grid" ? 2 : 1}
-        key={viewMode} // Force re-render when view mode changes
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[COLORS.PRIMARY]}
-            tintColor={COLORS.PRIMARY}
+  const renderEmptyState = () => (
+    <Animated.View
+      style={[
+        styles.emptyContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+        style={styles.emptyCard}
+      >
+        <LinearGradient
+          colors={[ColorPalette.neutral[100], ColorPalette.neutral[50]]}
+          style={styles.emptyIcon}
+        >
+          <Ionicons
+            name="search-outline"
+            size={64}
+            color={ColorPalette.neutral[400]}
           />
-        }
-      />
-    );
-  };
+        </LinearGradient>
+        <Text style={styles.emptyTitle}>No categories found</Text>
+        <Text style={styles.emptySubtitle}>
+          Try adjusting your search terms
+        </Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+
+  if (loading) {
+    return <Loading text="Loading categories..." />;
+  }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={ColorPalette.primary[600]}
+      />
+
       {renderHeader()}
-      <View style={styles.content}>{renderContent()}</View>
-    </SafeAreaView>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[ColorPalette.primary[500]]}
+            tintColor={ColorPalette.primary[500]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {filteredCategories.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <View style={styles.categoriesGrid}>
+            {filteredCategories.map(renderCategory)}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: ColorPalette.neutral[50],
   },
-  header: {
-    backgroundColor: COLORS.WHITE,
-    paddingBottom: SPACING.MD,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER_LIGHT,
+
+  // Header styles
+  headerContainer: {
+    height: HEADER_HEIGHT,
+    position: "relative",
+  },
+  headerGradient: {
+    flex: 1,
+    paddingTop: 0,
+  },
+  floatingElement: {
+    position: "absolute",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.full,
+  },
+  element1: {
+    width: 60,
+    height: 60,
+    top: height * 0.08,
+    left: width * 0.1,
+  },
+  element2: {
+    width: 40,
+    height: 40,
+    top: height * 0.05,
+    right: width * 0.15,
+  },
+  element3: {
+    width: 80,
+    height: 80,
+    top: height * 0.12,
+    right: width * 0.05,
+  },
+  headerContent: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    justifyContent: "space-between",
+    paddingBottom: spacing.lg,
   },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: SPACING.MD,
-    paddingVertical: SPACING.SM,
+    paddingTop: spacing.md,
   },
-  backButton: {
-    padding: SPACING.SM,
-  },
-  headerTitle: {
-    fontSize: FONTS.SIZE.XXL,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    flex: 1,
-    textAlign: "center",
-  },
-  viewModeButton: {
-    padding: SPACING.SM,
-  },
-  searchBar: {
-    marginHorizontal: SPACING.MD,
-    marginBottom: SPACING.SM,
-    backgroundColor: COLORS.GRAY_50,
-  },
-  filtersContainer: {
-    marginBottom: SPACING.SM,
-  },
-  filtersContent: {
-    paddingHorizontal: SPACING.MD,
-    gap: SPACING.SM,
-  },
-  filterChip: {
-    marginRight: SPACING.SM,
-  },
-  content: {
-    flex: 1,
-  },
-  listContainer: {
-    padding: SPACING.MD,
-    paddingBottom: SPACING.XXL,
-  },
-
-  // Grid styles
-  gridCategoryContainer: {
-    width: CARD_WIDTH,
-    marginBottom: SPACING.MD,
-    marginHorizontal: SPACING.XS,
-  },
-  gridCategoryCard: {
-    elevation: 2,
-    borderRadius: BORDER_RADIUS.LG,
-  },
-  gridCategoryContent: {
-    alignItems: "center",
-    paddingVertical: SPACING.LG,
-  },
-  categoryIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SPACING.MD,
-  },
-  gridCategoryName: {
-    fontSize: FONTS.SIZE.MD,
-    fontWeight: FONTS.WEIGHT.SEMIBOLD,
-    color: COLORS.TEXT_PRIMARY,
-    textAlign: "center",
-    marginBottom: SPACING.XS,
-  },
-  gridCategoryDescription: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    textAlign: "center",
-    lineHeight: FONTS.SIZE.SM * 1.4,
-  },
-
-  // List styles
-  listCategoryContainer: {
-    marginBottom: SPACING.SM,
-  },
-  listCategoryCard: {
-    elevation: 1,
-    borderRadius: BORDER_RADIUS.MD,
-  },
-  listCategoryContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: SPACING.MD,
-  },
-  listCategoryIcon: {
+  backButton: {},
+  menuButton: {},
+  headerButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: SPACING.MD,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
-  listCategoryInfo: {
+  titleContainer: {
     flex: 1,
+    alignItems: "center",
   },
-  listCategoryName: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.SEMIBOLD,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.XS,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: ColorPalette.pure.white,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 4,
   },
-  listCategoryDescription: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    lineHeight: FONTS.SIZE.SM * 1.4,
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: spacing.xs,
+    textAlign: "center",
+  },
+  searchContainer: {
+    marginTop: spacing.lg,
+  },
+  searchBar: {
+    backgroundColor: ColorPalette.pure.white,
+    elevation: 8,
+    shadowColor: "rgba(0, 0, 0, 0.2)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    borderRadius: borderRadius.xl,
+  },
+  searchInput: {
+    fontSize: 16,
+    color: ColorPalette.neutral[700],
+  },
+
+  // Content styles
+  scrollView: {
+    flex: 1,
+    marginTop: -spacing.xl,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xxxxl,
+    paddingTop: spacing.xl,
+  },
+
+  // Categories grid
+  categoriesGrid: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  categoryCard: {
+    marginBottom: spacing.md,
+  },
+  categoryGradient: {
+    borderRadius: borderRadius.lg,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  categoryContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  categoryIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: spacing.md,
+  },
+  categoryInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  categoryName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.xs,
+  },
+  categoryDescription: {
+    fontSize: 14,
+    color: ColorPalette.neutral[600],
+    lineHeight: 20,
+  },
+  categoryArrow: {},
+  arrowContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Empty state styles
+  emptyContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxxxl,
+  },
+  emptyCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xxxxl,
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  emptyIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: ColorPalette.neutral[600],
+    textAlign: "center",
   },
 });
 

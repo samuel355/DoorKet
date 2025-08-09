@@ -1,11 +1,12 @@
 import { useAuth } from "@/store/authStore";
 import { StatusBar } from "expo-status-bar";
+import { NavigationContainer } from "@react-navigation/native";
 import React from "react";
 
-import AdminNavigator from "./AdminNavigator";
 import AuthNavigator from "./AuthNavigator";
-import RunnerNavigator from "./RunnerNavigator";
 import StudentNavigator from "./StudentNavigator";
+import RunnerNavigator from "./RunnerNavigator";
+import AdminNavigator from "./AdminNavigator";
 
 const AppNavigator: React.FC = () => {
   const { isAuthenticated, profile, isLoading } = useAuth();

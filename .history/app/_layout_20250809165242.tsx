@@ -20,8 +20,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <PaperProvider theme={createPaperTheme()}>
-          <StatusBar style="auto" />
-          <Slot />
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </NavigationContainer>
         </PaperProvider>
       </ThemeProvider>
     </SafeAreaProvider>

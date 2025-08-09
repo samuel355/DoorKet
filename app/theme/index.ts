@@ -1,9 +1,6 @@
-// Theme system exports
-export * from "./colors";
-export * from "./styling";
-export * from "./ThemeContext";
+// Theme system exports - specific exports to avoid conflicts
 
-// Re-export commonly used items for convenience
+// Colors and themes
 export {
   ColorPalette,
   LightTheme,
@@ -13,6 +10,7 @@ export {
   type ThemeMode,
 } from "./colors";
 
+// Styling utilities
 export {
   borderRadius,
   spacing,
@@ -28,6 +26,7 @@ export {
   type BorderRadiusValue,
 } from "./styling";
 
+// Theme context and hooks
 export {
   ThemeProvider,
   useTheme,
@@ -40,6 +39,3 @@ export {
   useThemeModeSelector,
   type ThemeContextType,
 } from "./ThemeContext";
-
-// Default export for convenience
-export { themes as default } from "./colors";

@@ -16,7 +16,6 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../../types";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
-import { useAuth } from "@/store/authStore";
 
 type SplashScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -36,8 +35,6 @@ const appNameSize = isSmallDevice ? 46 : 52;
 const logoCircleSize = isSmallDevice ? 140 : 160;
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
-  const { isAuthenticated, profile, isLoading } = useAuth();
-
   // Animation values
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoRotation = useRef(new Animated.Value(0)).current;
@@ -182,37 +179,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
     );
 
     // Start all animations
-    // Start animation sequence
     splashSequence.start(() => {
-      // Navigate based on auth status after splash completes
+      // Navigate to Welcome screen after splash completes
       setTimeout(() => {
-        if (isLoading) {
-          // Still loading auth state, wait a bit more
-          setTimeout(() => {
-            handleNavigation();
-          }, 500);
-        } else {
-          handleNavigation();
-        }
+        navigation.replace("Welcome");
       }, 800);
     });
-
-    const handleNavigation = () => {
-      if (isAuthenticated && profile) {
-        // User is fully authenticated with profile - this shouldn't happen in auth flow
-        // but handle gracefully by going to Welcome
-        navigation.replace("Welcome");
-      } else if (isAuthenticated && !profile) {
-        // User is authenticated but needs to complete profile
-        navigation.replace("ProfileSetup", {
-          phone: "", // No phone since we're not using phone auth
-          userType: "student", // Default, will be updated in ProfileSetup
-        });
-      } else {
-        // Not authenticated, go to normal flow
-        navigation.replace("Welcome");
-      }
-    };
 
     floatingAnimations.forEach((anim) => anim.start());
     pulseAnimation.start();

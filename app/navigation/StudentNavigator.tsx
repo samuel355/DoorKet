@@ -3,8 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
-import { Platform } from "react-native";
-import ProfileSetupScreen from "../screens/auth/ProfileSetupScreen";
+import { Platform, View } from "react-native";
+import ProfileScreen from "../screens/shared/ProfileScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import SettingsScreen from "../screens/shared/SettingsScreen";
 import CartScreen from "../screens/student/CartScreen";
@@ -17,7 +17,6 @@ import OrderHistoryScreen from "../screens/student/OrderHistoryScreen";
 import OrderTrackingScreen from "../screens/student/OrderTrackingScreen";
 import PaymentScreen from "../screens/student/PaymentScreen";
 
-
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<StudentStackParamList>();
 
@@ -26,13 +25,7 @@ const HomeStackNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: "#2196F3",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
+        headerShown: false,
       }}
     >
       <Stack.Screen
@@ -87,38 +80,12 @@ const CartStackNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: "#2196F3",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
+        headerShown: false,
       }}
     >
-      <Stack.Screen
-        name="Cart"
-        component={CartScreen}
-        options={{
-          title: "My Cart",
-        }}
-      />
-      <Stack.Screen
-        name="Checkout"
-        component={CheckoutScreen}
-        options={{
-          title: "Checkout",
-        }}
-      />
-      <Stack.Screen
-        name="Payment"
-        component={PaymentScreen}
-        options={{
-          title: "Payment",
-          headerLeft: () => null, // Prevent going back during payment
-          gestureEnabled: false,
-        }}
-      />
+      <Stack.Screen name="Cart" component={CartScreen} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="Payment" component={PaymentScreen} />
     </Stack.Navigator>
   );
 };
@@ -128,13 +95,7 @@ const OrdersStackNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: "#2196F3",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
+        headerShown: false,
       }}
     >
       <Stack.Screen
@@ -160,22 +121,10 @@ const ProfileStackNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: "#2196F3",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
+        headerShown: false,
       }}
     >
-      <Stack.Screen
-        name="Profile"
-        component={ProfileSetupScreen}
-        options={{
-          title: "Profile",
-        }}
-      />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
@@ -206,7 +155,7 @@ const StudentNavigator: React.FC = () => {
               iconName = focused ? "home" : "home-outline";
               break;
             case "CartTab":
-              iconName = focused ? "basket" : "basket-outline";
+              iconName = focused ? "bag" : "bag-outline";
               break;
             case "OrdersTab":
               iconName = focused ? "receipt" : "receipt-outline";
@@ -218,21 +167,50 @@ const StudentNavigator: React.FC = () => {
               iconName = "ellipse-outline";
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View
+              style={{
+                backgroundColor: focused ? "#7c73f020" : "transparent",
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                minWidth: 50,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons
+                name={iconName}
+                size={focused ? 26 : 24}
+                color={focused ? "#7c73f0" : "#64748b"}
+              />
+            </View>
+          );
         },
-        tabBarActiveTintColor: "#2196F3",
-        tabBarInactiveTintColor: "#888888",
+        tabBarActiveTintColor: "#7c73f0",
+        tabBarInactiveTintColor: "#64748b",
         tabBarStyle: {
           backgroundColor: "#ffffff",
-          borderTopWidth: 1,
-          borderTopColor: "#e0e0e0",
-          paddingBottom: Platform.OS === "ios" ? 20 : 5,
-          paddingTop: 5,
-          height: Platform.OS === "ios" ? 85 : 60,
+          borderTopWidth: 0,
+          elevation: 20,
+          shadowColor: "rgba(0, 0, 0, 0.1)",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          paddingBottom: Platform.OS === "ios" ? 25 : 8,
+          paddingTop: 8,
+          height: Platform.OS === "ios" ? 90 : 65,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          position: "absolute",
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "600",
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
         headerShown: false,
       })}

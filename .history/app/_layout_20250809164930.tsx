@@ -1,10 +1,11 @@
+import { NavigationContainer } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Slot } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { DefaultTheme, Provider as PaperProvider } from "react-native-paper";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import AppNavigator from "./navigation/AppNavigator";
 import { ThemeProvider } from "./theme/ThemeContext";
 
 export default function RootLayout() {
@@ -20,8 +21,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <PaperProvider theme={createPaperTheme()}>
-          <StatusBar style="auto" />
-          <Slot />
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </NavigationContainer>
         </PaperProvider>
       </ThemeProvider>
     </SafeAreaProvider>

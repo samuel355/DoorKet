@@ -219,5 +219,4 @@ export const useThemeModeSelector = (
 };
 
 // Export types
-export type { ThemeContextType, ThemeMode };
-export { themes };
+export type { ThemeContextType };

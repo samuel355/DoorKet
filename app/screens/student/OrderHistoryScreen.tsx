@@ -1,513 +1,760 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
-  FlatList,
-  RefreshControl,
+  ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  Dimensions,
+  Animated,
+  Easing,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, Card, Button, Chip, Searchbar, FAB } from "react-native-paper";
+import { Text, Searchbar } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { StackNavigationProp } from "@react-navigation/stack";
 
-import { Loading, EmptyState, ErrorState } from "../../components/common";
-import {
-  COLORS,
-  SPACING,
-  FONTS,
-  BORDER_RADIUS,
-  ORDER_STATUS_CONFIG,
-} from "../../constants";
+import { Loading, EmptyState } from "../../components/common";
+import { Order, StudentStackParamList } from "@/types";
+import { OrderService } from "@/services/supabase";
 import { useAuth } from "@/store/authStore";
-import { Order, OrderStatus } from "@/types";
-import { SupabaseService } from "@/services/supabase";
+import { ColorPalette } from "../../theme/colors";
+import { spacing, borderRadius } from "../../theme/styling";
+
+type OrderHistoryScreenNavigationProp = StackNavigationProp<
+  StudentStackParamList,
+  "OrderHistory"
+>;
 
 interface OrderHistoryScreenProps {
-  navigation: any;
+  navigation: OrderHistoryScreenNavigationProp;
 }
+
+const { width, height } = Dimensions.get("window");
+const HEADER_HEIGHT = height * 0.25;
 
 const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
   navigation,
 }) => {
   const { user } = useAuth();
-
-  // State
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<OrderStatus | "all">(
-    "all",
-  );
 
-  // Filter options
-  const filterOptions = [
-    { id: "all", label: "All Orders", icon: "list" },
-    { id: "pending", label: "Pending", icon: "time" },
-    { id: "accepted", label: "Accepted", icon: "checkmark-circle" },
-    { id: "shopping", label: "Shopping", icon: "basket" },
-    { id: "delivering", label: "Delivering", icon: "car" },
-    { id: "completed", label: "Completed", icon: "checkmark-done" },
-    { id: "cancelled", label: "Cancelled", icon: "close-circle" },
-  ];
+  // Animation values
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const cardScale = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
 
-  // Load orders
-  const loadOrders = useCallback(
-    async (showRefreshing = false) => {
-      if (!user) return;
+  useEffect(() => {
+    loadOrders();
+    startAnimations();
+  }, []);
 
-      try {
-        if (showRefreshing) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-        setError(null);
+  useEffect(() => {
+    filterOrders();
+  }, [searchQuery, orders]);
 
-        const { data, error } = await SupabaseService.getStudentOrders(user.id);
+  const startAnimations = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
 
-        if (error) {
-          throw new Error(error);
-        }
+    // Floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
 
-        setOrders(data || []);
-        setFilteredOrders(data || []);
-      } catch (err: any) {
-        console.error("Error loading orders:", err);
-        setError(err.message || "Failed to load order history");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+  const loadOrders = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const { data, error } = await OrderService.getStudentOrders(user.id);
+      if (error) {
+        console.error("Error loading orders:", error);
+        return;
       }
-    },
-    [user],
-  );
+      setOrders(data || []);
+    } catch (error) {
+      console.error("Error loading orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
-  // Filter orders
   const filterOrders = useCallback(() => {
-    let filtered = [...orders];
-
-    // Filter by status
-    if (selectedFilter !== "all") {
-      filtered = filtered.filter((order) => order.status === selectedFilter);
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (order) =>
-          order.order_number.toLowerCase().includes(query) ||
-          order.delivery_address.toLowerCase().includes(query) ||
-          order.runner?.full_name?.toLowerCase().includes(query),
+    if (!searchQuery.trim()) {
+      setFilteredOrders(orders);
+    } else {
+      const filtered = orders.filter((order) =>
+        order.order_number.toLowerCase().includes(searchQuery.toLowerCase()),
       );
+      setFilteredOrders(filtered);
     }
+  }, [searchQuery, orders]);
 
-    setFilteredOrders(filtered);
-  }, [orders, selectedFilter, searchQuery]);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  }, [loadOrders]);
 
-  // Handle order press
   const handleOrderPress = (order: Order) => {
     navigation.navigate("OrderTracking", { orderId: order.id });
   };
 
-  // Handle reorder
-  const handleReorder = (order: Order) => {
-    // This would typically add all items from the order back to cart
-    navigation.navigate("Cart");
+  const getOrderStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return ColorPalette.warning[500];
+      case "accepted":
+      case "shopping":
+        return ColorPalette.info[500];
+      case "delivering":
+        return ColorPalette.accent[500];
+      case "completed":
+        return ColorPalette.success[500];
+      case "cancelled":
+        return ColorPalette.error[500];
+      default:
+        return ColorPalette.neutral[500];
+    }
   };
 
-  // Format date
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInDays = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    if (diffInDays === 0) return "Today";
-    if (diffInDays === 1) return "Yesterday";
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    return date.toLocaleDateString();
+  const getOrderStatusText = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "Finding Runner";
+      case "accepted":
+        return "Accepted";
+      case "shopping":
+        return "Shopping";
+      case "delivering":
+        return "On the Way";
+      case "completed":
+        return "Delivered";
+      case "cancelled":
+        return "Cancelled";
+      default:
+        return status;
+    }
   };
 
-  // Format time
-  const formatTime = (dateString: string): string => {
-    return new Date(dateString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const getOrderStatusIcon = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "time-outline";
+      case "accepted":
+        return "checkmark-circle-outline";
+      case "shopping":
+        return "bag-outline";
+      case "delivering":
+        return "bicycle-outline";
+      case "completed":
+        return "checkmark-done-outline";
+      case "cancelled":
+        return "close-circle-outline";
+      default:
+        return "ellipse-outline";
+    }
   };
 
-  // Effects
-  useEffect(() => {
-    filterOrders();
-  }, [filterOrders]);
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -15],
+  });
 
-  useFocusEffect(
-    useCallback(() => {
-      loadOrders();
-    }, [loadOrders]),
+  const renderHeader = () => (
+    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
+      <LinearGradient
+        colors={[
+          ColorPalette.primary[600],
+          ColorPalette.primary[500],
+          ColorPalette.secondary[500],
+          ColorPalette.accent[500],
+        ]}
+        locations={[0, 0.4, 0.7, 1]}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        {/* Floating decorative elements */}
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element1,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element2,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element3,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+
+        <SafeAreaView style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.2)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButton}
+              >
+                <Ionicons name="arrow-back" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.titleContainer}>
+              <Text style={styles.headerTitle}>My Orders</Text>
+              <Text style={styles.headerSubtitle}>
+                {filteredOrders.length} orders found
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => {
+                // Could add filter/sort options here
+              }}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.2)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButton}
+              >
+                <Ionicons name="filter-outline" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.searchContainer}>
+            <Searchbar
+              placeholder="Search orders..."
+              onChangeText={setSearchQuery}
+              value={searchQuery}
+              style={styles.searchBar}
+              inputStyle={styles.searchInput}
+              icon={() => (
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color={ColorPalette.primary[500]}
+                />
+              )}
+              iconColor={ColorPalette.primary[500]}
+            />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </Animated.View>
   );
 
-  // Render filter chip
-  const renderFilterChip = ({
-    item: filter,
-  }: {
-    item: (typeof filterOptions)[0];
-  }) => (
-    <Chip
-      key={filter.id}
-      selected={selectedFilter === filter.id}
-      onPress={() => setSelectedFilter(filter.id as any)}
-      icon={filter.icon}
+  const renderOrder = (order: Order, index: number) => (
+    <Animated.View
+      key={order.id}
       style={[
-        styles.filterChip,
-        selectedFilter === filter.id && styles.selectedFilterChip,
-      ]}
-      textStyle={[
-        styles.filterChipText,
-        selectedFilter === filter.id && styles.selectedFilterChipText,
+        styles.orderCard,
+        {
+          opacity: fadeAnim,
+          transform: [
+            { translateY: slideAnim },
+            {
+              scale: cardScale.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1],
+              }),
+            },
+          ],
+        },
       ]}
     >
-      {filter.label}
-    </Chip>
-  );
-
-  // Render order item
-  const renderOrderItem = ({ item: order }: { item: Order }) => {
-    const statusConfig = ORDER_STATUS_CONFIG[order.status];
-    const itemCount = order.order_items?.length || 0;
-
-    return (
       <TouchableOpacity onPress={() => handleOrderPress(order)}>
-        <Card style={styles.orderCard}>
-          <Card.Content style={styles.orderContent}>
-            {/* Order Header */}
+        <LinearGradient
+          colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+          style={styles.orderGradient}
+        >
+          <View style={styles.orderContent}>
             <View style={styles.orderHeader}>
               <View style={styles.orderInfo}>
                 <Text style={styles.orderNumber}>#{order.order_number}</Text>
                 <Text style={styles.orderDate}>
-                  {formatDate(order.created_at)} at{" "}
-                  {formatTime(order.created_at)}
+                  {new Date(order.created_at).toLocaleDateString()}
                 </Text>
               </View>
-              <Chip
-                icon={statusConfig.icon}
-                style={[
-                  styles.statusChip,
-                  { backgroundColor: statusConfig.color + "20" },
+
+              <LinearGradient
+                colors={[
+                  `${getOrderStatusColor(order.status)}20`,
+                  `${getOrderStatusColor(order.status)}10`,
                 ]}
-                textStyle={[
-                  styles.statusChipText,
-                  { color: statusConfig.color },
-                ]}
+                style={styles.statusContainer}
               >
-                {statusConfig.label}
-              </Chip>
+                <Ionicons
+                  name={getOrderStatusIcon(order.status) as any}
+                  size={16}
+                  color={getOrderStatusColor(order.status)}
+                />
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: getOrderStatusColor(order.status) },
+                  ]}
+                >
+                  {getOrderStatusText(order.status)}
+                </Text>
+              </LinearGradient>
             </View>
 
-            {/* Order Details */}
             <View style={styles.orderDetails}>
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="basket"
-                  size={16}
-                  color={COLORS.TEXT_SECONDARY}
-                />
-                <Text style={styles.orderDetailText}>
-                  {itemCount} item{itemCount !== 1 ? "s" : ""}
+              <View style={styles.priceContainer}>
+                <Text style={styles.totalLabel}>Total Amount</Text>
+                <Text style={styles.totalAmount}>
+                  GHS {order.total_amount.toFixed(2)}
                 </Text>
               </View>
 
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="location"
-                  size={16}
-                  color={COLORS.TEXT_SECONDARY}
-                />
-                <Text style={styles.orderDetailText} numberOfLines={1}>
-                  {order.delivery_address}
-                </Text>
-              </View>
-
-              {order.runner && (
-                <View style={styles.orderDetailRow}>
+              <View style={styles.orderMeta}>
+                <View style={styles.metaItem}>
                   <Ionicons
-                    name="person"
+                    name="time-outline"
                     size={16}
-                    color={COLORS.TEXT_SECONDARY}
+                    color={ColorPalette.neutral[500]}
                   />
-                  <Text style={styles.orderDetailText}>
-                    Runner: {order.runner.full_name}
+                  <Text style={styles.metaText}>
+                    {new Date(order.created_at).toLocaleTimeString()}
                   </Text>
                 </View>
-              )}
-            </View>
 
-            {/* Order Footer */}
-            <View style={styles.orderFooter}>
-              <Text style={styles.orderTotal}>
-                GHS {order.total_amount.toFixed(2)}
-              </Text>
-              <View style={styles.orderActions}>
-                {order.status === "completed" && (
-                  <Button
-                    mode="text"
-                    onPress={() => handleReorder(order)}
-                    style={styles.reorderButton}
-                    compact
-                  >
-                    Reorder
-                  </Button>
+                {order.runner && (
+                  <View style={styles.metaItem}>
+                    <Ionicons
+                      name="person-outline"
+                      size={16}
+                      color={ColorPalette.neutral[500]}
+                    />
+                    <Text style={styles.metaText}>
+                      {order.runner.full_name}
+                    </Text>
+                  </View>
                 )}
-                <Button
-                  mode="outlined"
-                  onPress={() => handleOrderPress(order)}
-                  style={styles.viewButton}
-                  compact
-                >
-                  {order.status === "completed" || order.status === "cancelled"
-                    ? "View"
-                    : "Track"}
-                </Button>
               </View>
             </View>
-          </Card.Content>
-        </Card>
+
+            <View style={styles.orderFooter}>
+              <View style={styles.itemsInfo}>
+                <Ionicons
+                  name="bag-outline"
+                  size={16}
+                  color={ColorPalette.neutral[500]}
+                />
+                <Text style={styles.itemsText}>
+                  {order.items?.length || 0} items
+                </Text>
+              </View>
+
+              <View style={styles.actionArrow}>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={ColorPalette.primary[500]}
+                />
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
-    );
-  };
+    </Animated.View>
+  );
 
-  // Loading state
-  if (loading && !refreshing) {
-    return <Loading text="Loading order history..." />;
-  }
+  const renderEmptyState = () => (
+    <Animated.View
+      style={[
+        styles.emptyContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+        style={styles.emptyCard}
+      >
+        <LinearGradient
+          colors={[ColorPalette.neutral[100], ColorPalette.neutral[50]]}
+          style={styles.emptyIcon}
+        >
+          <Ionicons
+            name="receipt-outline"
+            size={64}
+            color={ColorPalette.neutral[400]}
+          />
+        </LinearGradient>
+        <Text style={styles.emptyTitle}>No orders yet</Text>
+        <Text style={styles.emptySubtitle}>
+          Start shopping to see your orders here
+        </Text>
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={() => navigation.navigate("Categories")}
+        >
+          <LinearGradient
+            colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
+            style={styles.emptyButtonGradient}
+          >
+            <Text style={styles.emptyButtonText}>Start Shopping</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </LinearGradient>
+    </Animated.View>
+  );
 
-  // Error state
-  if (error) {
-    return (
-      <ErrorState
-        title="Unable to Load Orders"
-        subtitle={error}
-        actionText="Retry"
-        onActionPress={() => loadOrders()}
-      />
-    );
+  if (loading) {
+    return <Loading text="Loading orders..." />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Search orders..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          style={styles.searchBar}
-          inputStyle={styles.searchInput}
-        />
-      </View>
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={ColorPalette.primary[600]}
+      />
 
-      {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <FlatList
-          data={filterOptions}
-          renderItem={renderFilterChip}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContent}
-        />
-      </View>
+      {renderHeader()}
 
-      {/* Orders List */}
-      <FlatList
-        data={filteredOrders}
-        renderItem={renderOrderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => loadOrders(true)}
-            colors={[COLORS.PRIMARY]}
-            tintColor={COLORS.PRIMARY}
-          />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title="No Orders Found"
-            subtitle={
-              searchQuery.trim()
-                ? `No orders match "${searchQuery}"`
-                : selectedFilter === "all"
-                  ? "You haven't placed any orders yet"
-                  : `No ${filterOptions.find((f) => f.id === selectedFilter)?.label.toLowerCase()} orders`
-            }
-            icon="receipt-outline"
-            actionText={
-              searchQuery.trim() || selectedFilter !== "all"
-                ? "Clear Filters"
-                : "Start Shopping"
-            }
-            onActionPress={() => {
-              if (searchQuery.trim() || selectedFilter !== "all") {
-                setSearchQuery("");
-                setSelectedFilter("all");
-              } else {
-                navigation.navigate("Home");
-              }
-            }}
+            onRefresh={handleRefresh}
+            colors={[ColorPalette.primary[500]]}
+            tintColor={ColorPalette.primary[500]}
           />
         }
         showsVerticalScrollIndicator={false}
-      />
-
-      {/* Floating Action Button */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => navigation.navigate("Home")}
-        label="New Order"
-      />
-    </SafeAreaView>
+      >
+        {filteredOrders.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <View style={styles.ordersContainer}>
+            {filteredOrders.map(renderOrder)}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: ColorPalette.neutral[50],
+  },
+
+  // Header styles
+  headerContainer: {
+    height: HEADER_HEIGHT,
+    position: "relative",
+  },
+  headerGradient: {
+    flex: 1,
+    paddingTop: 0,
+  },
+  floatingElement: {
+    position: "absolute",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.full,
+  },
+  element1: {
+    width: 60,
+    height: 60,
+    top: height * 0.08,
+    left: width * 0.1,
+  },
+  element2: {
+    width: 40,
+    height: 40,
+    top: height * 0.05,
+    right: width * 0.15,
+  },
+  element3: {
+    width: 80,
+    height: 80,
+    top: height * 0.12,
+    right: width * 0.05,
+  },
+  headerContent: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    justifyContent: "space-between",
+    paddingBottom: spacing.lg,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: spacing.md,
+  },
+  backButton: {},
+  menuButton: {},
+  headerButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: ColorPalette.pure.white,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: spacing.xs,
+    textAlign: "center",
   },
   searchContainer: {
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD,
-    backgroundColor: COLORS.WHITE,
+    marginTop: spacing.lg,
   },
   searchBar: {
-    elevation: 0,
-    backgroundColor: COLORS.GRAY_100,
-    borderRadius: BORDER_RADIUS.LG,
+    backgroundColor: ColorPalette.pure.white,
+    elevation: 8,
+    shadowColor: "rgba(0, 0, 0, 0.2)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    borderRadius: borderRadius.xl,
   },
   searchInput: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_PRIMARY,
+    fontSize: 16,
+    color: ColorPalette.neutral[700],
   },
-  filtersContainer: {
-    backgroundColor: COLORS.WHITE,
-    paddingVertical: SPACING.SM,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER_LIGHT,
+
+  // Content styles
+  scrollView: {
+    flex: 1,
+    marginTop: -spacing.xl,
   },
-  filtersContent: {
-    paddingHorizontal: SPACING.LG,
+  scrollContent: {
+    paddingBottom: spacing.xxxxl,
+    paddingTop: spacing.xl,
   },
-  filterChip: {
-    marginRight: SPACING.SM,
-    backgroundColor: COLORS.GRAY_100,
-    borderColor: COLORS.BORDER,
-  },
-  selectedFilterChip: {
-    backgroundColor: COLORS.PRIMARY_LIGHT,
-    borderColor: COLORS.PRIMARY,
-  },
-  filterChipText: {
-    color: COLORS.TEXT_SECONDARY,
-    fontSize: FONTS.SIZE.SM,
-  },
-  selectedFilterChipText: {
-    color: COLORS.PRIMARY,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
-  },
-  listContent: {
-    padding: SPACING.LG,
-    flexGrow: 1,
-    paddingBottom: 100, // Space for FAB
+
+  // Orders container
+  ordersContainer: {
+    paddingHorizontal: spacing.lg,
   },
   orderCard: {
-    marginBottom: SPACING.MD,
-    borderRadius: BORDER_RADIUS.LG,
-    elevation: 2,
-    backgroundColor: COLORS.WHITE,
+    marginBottom: spacing.md,
+  },
+  orderGradient: {
+    borderRadius: borderRadius.lg,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
   orderContent: {
-    padding: SPACING.MD,
+    padding: spacing.lg,
   },
   orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: SPACING.MD,
+    marginBottom: spacing.md,
   },
-  orderInfo: {
-    flex: 1,
-  },
+  orderInfo: {},
   orderNumber: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.XS,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.xs,
   },
   orderDate: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: 12,
+    color: ColorPalette.neutral[500],
   },
-  statusChip: {
-    height: 32,
-    marginLeft: SPACING.SM,
-  },
-  statusChipText: {
-    fontSize: FONTS.SIZE.SM,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
-  },
-  orderDetails: {
-    gap: SPACING.SM,
-    marginBottom: SPACING.MD,
-  },
-  orderDetailRow: {
+  statusContainer: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
   },
-  orderDetailText: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    marginLeft: SPACING.SM,
-    flex: 1,
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  orderDetails: {
+    marginBottom: spacing.md,
+  },
+  priceContainer: {
+    marginBottom: spacing.sm,
+  },
+  totalLabel: {
+    fontSize: 12,
+    color: ColorPalette.neutral[500],
+    marginBottom: spacing.xs,
+  },
+  totalAmount: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: ColorPalette.primary[600],
+  },
+  orderMeta: {
+    flexDirection: "row",
+    gap: spacing.lg,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  metaText: {
+    fontSize: 12,
+    color: ColorPalette.neutral[600],
   },
   orderFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: SPACING.SM,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER_LIGHT,
   },
-  orderTotal: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.PRIMARY,
-  },
-  orderActions: {
+  itemsInfo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING.SM,
+    gap: spacing.xs,
   },
-  reorderButton: {
-    minWidth: 80,
+  itemsText: {
+    fontSize: 14,
+    color: ColorPalette.neutral[600],
+    fontWeight: "500",
   },
-  viewButton: {
-    minWidth: 80,
+  actionArrow: {},
+
+  // Empty state styles
+  emptyContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxxxl,
   },
-  fab: {
-    position: "absolute",
-    margin: SPACING.LG,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.PRIMARY,
+  emptyCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xxxxl,
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  emptyIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: ColorPalette.neutral[600],
+    textAlign: "center",
+    marginBottom: spacing.xl,
+  },
+  emptyButton: {
+    marginTop: spacing.lg,
+  },
+  emptyButtonGradient: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  emptyButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.pure.white,
   },
 });
 

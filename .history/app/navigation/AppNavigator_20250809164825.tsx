@@ -35,10 +35,10 @@ const AppNavigator: React.FC = () => {
   };
 
   return (
-    <>
+    <NavigationContainer>
       <StatusBar style="auto" />
       {getCurrentNavigator()}
-    </>
+    </NavigationContainer>
   );
 };
 

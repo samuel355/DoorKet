@@ -1,11 +1,12 @@
 import { useFonts } from "expo-font";
-import { Slot } from "expo-router";
+import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
-import { DefaultTheme, Provider as PaperProvider } from "react-native-paper";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
+import React from "react";
 import { ThemeProvider } from "./theme/ThemeContext";
+import AppNavigator from "./navigation/AppNavigator";
 
 export default function RootLayout() {
   const [loaded] = useFonts({
