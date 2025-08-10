@@ -3,7 +3,8 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
 import { Platform } from "react-native";
-import { AdminDashboardScreen, AdminSettingsScreen, AnalyticsScreen, CategoryManagementScreen, ItemManagementScreen, NotificationsScreen, OrderDetailsScreen, OrderManagementScreen, ProfileScreen, ReportsScreen, SettingsScreen, UserDetailsScreen, UserManagementScreen } from "../screens/PlaceholderScreens";
+import { AdminSettingsScreen, AnalyticsScreen, CategoryManagementScreen, ItemManagementScreen, NotificationsScreen, OrderDetailsScreen, OrderManagementScreen, ProfileScreen, ReportsScreen, SettingsScreen, UserDetailsScreen, UserManagementScreen } from "../screens/PlaceholderScreens";
+import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 
 
 const Tab = createBottomTabNavigator();

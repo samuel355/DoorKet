@@ -1,8 +1,6 @@
-import {
-  createClient,
-  SupabaseClient,
-} from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
 import {
   User as AppUser,
   Order,
@@ -21,10 +19,9 @@ import {
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Check your .env file.'
+  console.error(
+    "Missing Supabase env. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.",
   );
 }
 
@@ -97,6 +94,7 @@ export const supabase: SupabaseClient<Database> = createClient(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      flowType: "pkce",
     },
     realtime: {
       params: {
@@ -158,7 +156,7 @@ export class AuthService {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: "DoorKet://auth/callback",
+          redirectTo: Linking.createURL("/auth/callback"),
         },
       });
 
@@ -440,9 +438,9 @@ export class ItemService {
       return { data, error: null };
     } catch (error: any) {
       console.error("Failed to fetch categories:", error.message);
-      return { 
-        data: null, 
-        error: "Failed to load categories" 
+      return {
+        data: null,
+        error: "Failed to load categories",
       };
     }
   }
@@ -977,6 +975,212 @@ export class StorageService {
       console.error("Upload receipt image error:", error);
       return { data: null, error: error.message };
     }
+  }
+}
+
+// Admin Functions
+export class AdminService {
+  /**
+   * Get dashboard statistics
+   */
+  static async getDashboardStats() {
+    try {
+      const [ordersResult, usersResult, itemsResult] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("*")
+          .gte(
+            "created_at",
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          ),
+        supabase.from("users").select("*").eq("is_active", true),
+        supabase.from("items").select("*").eq("is_available", true),
+      ]);
+
+      if (ordersResult.error) throw ordersResult.error;
+      if (usersResult.error) throw usersResult.error;
+      if (itemsResult.error) throw itemsResult.error;
+
+      const orders = ordersResult.data || [];
+      const users = usersResult.data || [];
+      const items = itemsResult.data || [];
+
+      return {
+        data: {
+          totalOrders: orders.length,
+          revenue: orders.reduce(
+            (sum, order) => sum + (order.total_amount || 0),
+            0,
+          ),
+          activeUsers: users.filter((u) => u.user_type === "student").length,
+          totalProducts: items.length,
+          revenueData: this.calculateRevenueData(orders),
+        },
+        error: null,
+      };
+    } catch (error: any) {
+      console.error("Get dashboard stats error:", error);
+      return { data: null, error: error.message };
+    }
+  }
+
+  /**
+   * Get recent orders with details
+   */
+  static async getRecentOrders(limit = 5) {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          `
+          *,
+          student:users!orders_student_id_fkey(
+            id,
+            full_name,
+            email
+          ),
+          order_items(
+            *,
+            item:items(
+              id,
+              name,
+              base_price
+            )
+          )
+        `,
+        )
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      console.error("Get recent orders error:", error);
+      return { data: null, error: error.message };
+    }
+  }
+
+  /**
+   * Get user statistics
+   */
+  static async getUserStats() {
+    try {
+      const { data, error } = await supabase.from("users").select("*");
+
+      if (error) throw error;
+
+      const stats = {
+        total: data.length,
+        students: data.filter((u) => u.user_type === "student").length,
+        runners: data.filter((u) => u.user_type === "runner").length,
+        admins: data.filter((u) => u.user_type === "admin").length,
+        active: data.filter((u) => u.is_active).length,
+        inactive: data.filter((u) => !u.is_active).length,
+      };
+
+      return { data: stats, error: null };
+    } catch (error: any) {
+      console.error("Get user stats error:", error);
+      return { data: null, error: error.message };
+    }
+  }
+
+  /**
+   * Calculate revenue data for charts
+   */
+  private static calculateRevenueData(orders: any[]) {
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      return {
+        label: d.toLocaleString("default", { month: "short" }),
+        timestamp: d.getTime(),
+      };
+    }).reverse();
+
+    const monthlyRevenue = last6Months.map((month) => {
+      const total = orders
+        .filter((order) => {
+          const orderDate = new Date(order.created_at);
+          const orderMonth = orderDate.toLocaleString("default", {
+            month: "short",
+          });
+          return orderMonth === month.label;
+        })
+        .reduce((sum, order) => sum + (order.total_amount || 0), 0);
+
+      return total;
+    });
+
+    return {
+      labels: last6Months.map((m) => m.label),
+      data: monthlyRevenue,
+    };
+  }
+
+  /**
+   * Get admin analytics data
+   */
+  static async getAnalytics(period: "day" | "week" | "month" | "year") {
+    try {
+      const startDate = new Date();
+      switch (period) {
+        case "day":
+          startDate.setDate(startDate.getDate() - 1);
+          break;
+        case "week":
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case "month":
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case "year":
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          break;
+      }
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          `
+          *,
+          order_items(*)
+        `,
+        )
+        .gte("created_at", startDate.toISOString());
+
+      if (error) throw error;
+
+      const analytics = {
+        totalOrders: data.length,
+        totalRevenue: data.reduce(
+          (sum, order) => sum + (order.total_amount || 0),
+          0,
+        ),
+        averageOrderValue:
+          data.length > 0
+            ? data.reduce((sum, order) => sum + (order.total_amount || 0), 0) /
+              data.length
+            : 0,
+        ordersByStatus: this.groupOrdersByStatus(data),
+      };
+
+      return { data: analytics, error: null };
+    } catch (error: any) {
+      console.error("Get analytics error:", error);
+      return { data: null, error: error.message };
+    }
+  }
+
+  /**
+   * Group orders by status
+   */
+  private static groupOrdersByStatus(orders: any[]) {
+    return orders.reduce((acc, order) => {
+      const status = order.status;
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
   }
 }
 

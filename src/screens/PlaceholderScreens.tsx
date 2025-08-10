@@ -228,15 +228,15 @@ export const RunnerProfileScreen: React.FC<{ navigation: any }> = ({ navigation 
 );
 
 // Admin Screens
-export const AdminDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
-  <PlaceholderScreen
-    title="Admin Dashboard"
-    subtitle="Platform overview and analytics"
-    icon="grid"
-    color="#FF9800"
-    navigation={navigation}
-  />
-);
+// export const AdminDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+//   <PlaceholderScreen
+//     title="Admin Dashboard"
+//     subtitle="Platform overview and analytics"
+//     icon="grid"
+//     color="#FF9800"
+//     navigation={navigation}
+//   />
+// );
 
 export const UserManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
   <PlaceholderScreen
