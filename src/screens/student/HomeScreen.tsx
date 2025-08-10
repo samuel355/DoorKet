@@ -1,4 +1,3 @@
-import { ItemService, OrderService} from "@/services/supabase";
 import { useAuth } from "@/store/authStore";
 import { Category, Order, StudentStackParamList } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +20,8 @@ import { Searchbar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ColorPalette } from "../../theme/colors";
 import { borderRadius, spacing } from "../../theme/styling";
+import { ItemService } from "@/services/itemService";
+import { OrderService } from "@/services/orderService";
 
 type HomeScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,

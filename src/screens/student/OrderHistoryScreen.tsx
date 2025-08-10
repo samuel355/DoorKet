@@ -18,11 +18,11 @@ import { StackNavigationProp } from "@react-navigation/stack";
 
 import { Loading, EmptyState } from "../../components/common";
 import { StudentStackParamList } from "@/types";
-import { OrderService } from "@/services/supabase";
 import { useAuth } from "@/store/authStore";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
 import { CommonActions } from "@react-navigation/native";
+import { OrderService } from "@/services/orderService";
 
 type OrderHistoryScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,

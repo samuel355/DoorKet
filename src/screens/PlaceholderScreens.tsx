@@ -238,25 +238,25 @@ export const RunnerProfileScreen: React.FC<{ navigation: any }> = ({ navigation 
 //   />
 // );
 
-export const UserManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
-  <PlaceholderScreen
-    title="User Management"
-    subtitle="Manage students and runners"
-    icon="people"
-    color="#FF9800"
-    navigation={navigation}
-  />
-);
+// export const UserManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+//   <PlaceholderScreen
+//     title="User Management"
+//     subtitle="Manage students and runners"
+//     icon="people"
+//     color="#FF9800"
+//     navigation={navigation}
+//   />
+// );
 
-export const OrderManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
-  <PlaceholderScreen
-    title="Order Management"
-    subtitle="Monitor and manage all orders"
-    icon="receipt"
-    color="#FF9800"
-    navigation={navigation}
-  />
-);
+// export const OrderManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+//   <PlaceholderScreen
+//     title="Order Management"
+//     subtitle="Monitor and manage all orders"
+//     icon="receipt"
+//     color="#FF9800"
+//     navigation={navigation}
+//   />
+// );
 
 export const AnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
   <PlaceholderScreen

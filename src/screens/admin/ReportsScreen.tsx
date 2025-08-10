@@ -9,6 +9,7 @@ const UserManagementScreen: React.FC<{
   navigation?: any;
 }> = ({ navigation }) => {
   const theme = useTheme();
+  console.log(theme);
 
   return (
     <SafeAreaView style={styles.container}>
