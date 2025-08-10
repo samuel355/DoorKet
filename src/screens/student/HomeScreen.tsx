@@ -1,4 +1,4 @@
-import { ItemService, OrderService } from "@/services/supabase";
+import { ItemService, OrderService} from "@/services/supabase";
 import { useAuth } from "@/store/authStore";
 import { Category, Order, StudentStackParamList } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
@@ -103,12 +103,30 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     try {
       const { data, error } = await ItemService.getCategories();
       if (error) {
-        console.error("Error loading categories:", error);
+        console.error("Error loading categories:", {
+          message: error,
+          details: error
+        });
+        // Optionally show user-friendly error message
+        // Alert.alert("Error", "Unable to load categories. Please try again.");
         return;
       }
-      setCategories(data || []);
+      
+      if (!data) {
+        console.warn("No categories data received");
+        setCategories([]);
+        return;
+      }
+
+      setCategories(data);
     } catch (error) {
-      console.error("Error loading categories:", error);
+      console.error("Unexpected error loading categories:", {
+        message: error instanceof Error ? error.message : "Unknown error",
+        error
+      });
+      // Optionally show user-friendly error message
+      // Alert.alert("Error", "Something went wrong. Please try again.");
+      setCategories([]);
     }
   }, []);
 

@@ -23,6 +23,13 @@ import { MockItemService, isMockModeEnabled } from "./mockData";
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Check your .env file.'
+  );
+}
+
 // Database type definitions
 export interface Database {
   public: {
@@ -412,27 +419,33 @@ export class ItemService {
    * Get all categories
    */
   static async getCategories() {
-    // Use mock data if database is not available or in development mode
-    if (isMockModeEnabled()) {
-      console.log("Using mock data for categories");
-      return MockItemService.getCategories();
-    }
+    // Remove or set to false to test real Supabase connection
+    // if (isMockModeEnabled()) {
+    //   console.log("Using mock data for categories");
+    //   return MockItemService.getCategories();
+    // }
 
     try {
+      console.log("Fetching categories from Supabase...");
       const { data, error } = await supabase
         .from("categories")
         .select("*")
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+
+      console.log("Categories fetched successfully:");
       return { data, error: null };
     } catch (error: any) {
-      console.error("Get categories error:", error);
-
-      // Fallback to mock data if database fails
-      console.log("Database failed, falling back to mock data");
-      return MockItemService.getCategories();
+      console.error("Failed to fetch categories:", error.message);
+      return { 
+        data: null, 
+        error: "Failed to load categories" 
+      };
     }
   }
 
@@ -441,10 +454,10 @@ export class ItemService {
    */
   static async getItemsByCategory(categoryId: string) {
     // Use mock data if database is not available or in development mode
-    if (isMockModeEnabled()) {
-      console.log("Using mock data for items");
-      return MockItemService.getItemsByCategory(categoryId);
-    }
+    // if (isMockModeEnabled()) {
+    //   console.log("Using mock data for items");
+    //   return MockItemService.getItemsByCategory(categoryId);
+    // }
     try {
       const { data, error } = await supabase
         .from("items")

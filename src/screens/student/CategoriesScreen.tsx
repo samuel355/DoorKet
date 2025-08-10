@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
 
-import { Loading, EmptyState } from "../../components/common";
+import { Loading } from "../../components/common";
 import { Category, StudentStackParamList } from "@/types";
 import { ItemService } from "@/services/supabase";
 import { ColorPalette } from "../../theme/colors";

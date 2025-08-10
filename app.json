@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "shopcart",
-    "slug": "shopcart",
+    "name": "DoorKet",
+    "slug": "DoorKet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "shopcart",
+    "scheme": "DoorKet",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
