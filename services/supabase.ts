@@ -1,8 +1,6 @@
 import {
   createClient,
   SupabaseClient,
-  Session,
-  User,
 } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -17,7 +15,7 @@ import {
   PaymentStatus,
   UserType,
 } from "../types";
-import { MockItemService, isMockModeEnabled } from "./mockData";
+//import { MockItemService, isMockModeEnabled } from "./mockData";
 
 // Environment variables
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;

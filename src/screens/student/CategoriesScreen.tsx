@@ -33,7 +33,7 @@ interface CategoriesScreenProps {
 
 const { width, height } = Dimensions.get("window");
 const HEADER_HEIGHT = height * 0.25;
-const CARD_WIDTH = (width - 60) / 2;
+//const CARD_WIDTH = (width - 60) / 2;
 
 const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -49,14 +49,21 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadCategories();
-    startAnimations();
+  const loadCategories = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await ItemService.getCategories();
+      if (error) {
+        console.error("Error loading categories:", error);
+        return;
+      }
+      setCategories(data || []);
+    } catch (error) {
+      console.error("Error loading categories:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
-
-  useEffect(() => {
-    filterCategories();
-  }, [searchQuery, categories]);
 
   const startAnimations = useCallback(() => {
     Animated.sequence([
@@ -105,21 +112,10 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
     ).start();
   }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
 
-  const loadCategories = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await ItemService.getCategories();
-      if (error) {
-        console.error("Error loading categories:", error);
-        return;
-      }
-      setCategories(data || []);
-    } catch (error) {
-      console.error("Error loading categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    loadCategories();
+    startAnimations();
+  }, [loadCategories, startAnimations]);
 
   const filterCategories = useCallback(() => {
     if (!searchQuery.trim()) {
@@ -131,6 +127,10 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
       setFilteredCategories(filtered);
     }
   }, [searchQuery, categories]);
+
+  useEffect(() => {
+    filterCategories();
+  }, [searchQuery, categories, filterCategories]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
