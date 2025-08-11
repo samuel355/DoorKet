@@ -31,7 +31,7 @@ export interface Database {
       users: {
         Row: AppUser;
         Insert: Omit<AppUser, "id" | "created_at" | "updated_at">;
-        Update: Partial<Omit<AppUser, "id" | "created_at" | "updated_at">>;
+         Update: Partial<Omit<AppUser, "id" | "created_at">>;
       };
       categories: {
         Row: Category;

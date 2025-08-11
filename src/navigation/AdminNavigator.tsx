@@ -12,13 +12,13 @@ import OrderManagementScreen from "../screens/admin/OrderManagementScreen";
 import CategoryManagementScreen from "../screens/admin/CategoryManagementScreen";
 import ItemManagementScreen from "../screens/admin/ItemManagementScreen";
 import AdminSettingsScreen from "../screens/admin/AdminSettingsScreen";
+import NotificationsScreen from "../screens/admin/NotificationsScreen";
+import ProfileScreen from "../screens/admin/ProfileScreen";
 
 // --- other placeholders (keep if you use them) ---
 import {
   AnalyticsScreen,
-  NotificationsScreen,
   OrderDetailsScreen,
-  ProfileScreen,
   ReportsScreen,
   SettingsScreen,
   UserDetailsScreen,
