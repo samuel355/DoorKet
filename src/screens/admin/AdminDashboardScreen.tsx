@@ -198,9 +198,9 @@ const AdminDashboardScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   const chartWidth = Dimensions.get("window").width - 48;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.bg }]} edges={["left","right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content]}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -353,7 +353,7 @@ const AdminDashboardScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1},
   content: { padding: 16 },
 
   header: {

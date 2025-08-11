@@ -337,7 +337,7 @@ const UserManagementScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left","right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {loading && users.length === 0 ? (

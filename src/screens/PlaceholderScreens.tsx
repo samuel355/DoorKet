@@ -268,15 +268,15 @@ export const AnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation }) =
   />
 );
 
-export const AdminSettingsScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
-  <PlaceholderScreen
-    title="Admin Settings"
-    subtitle="Platform configuration and settings"
-    icon="settings"
-    color="#FF9800"
-    navigation={navigation}
-  />
-);
+// export const AdminSettingsScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+//   <PlaceholderScreen
+//     title="Admin Settings"
+//     subtitle="Platform configuration and settings"
+//     icon="settings"
+//     color="#FF9800"
+//     navigation={navigation}
+//   />
+// );
 
 export const UserDetailsScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => (
   <PlaceholderScreen

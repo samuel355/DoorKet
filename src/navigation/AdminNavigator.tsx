@@ -11,10 +11,10 @@ import UserManagementScreen from "../screens/admin/UserManagementScreen";
 import OrderManagementScreen from "../screens/admin/OrderManagementScreen";
 import CategoryManagementScreen from "../screens/admin/CategoryManagementScreen";
 import ItemManagementScreen from "../screens/admin/ItemManagementScreen";
+import AdminSettingsScreen from "../screens/admin/AdminSettingsScreen";
 
 // --- other placeholders (keep if you use them) ---
 import {
-  AdminSettingsScreen,
   AnalyticsScreen,
   NotificationsScreen,
   OrderDetailsScreen,
@@ -42,7 +42,9 @@ type OrdersStackParamList = {
 
 type CatalogStackParamList = {
   CategoryManagement: undefined;
-  ItemManagement: { categoryId?: string; categoryName?: string; openNew?: boolean  } | undefined;
+  ItemManagement:
+    | { categoryId?: string; categoryName?: string; openNew?: boolean }
+    | undefined;
 };
 
 type AnalyticsStackParamList = {
@@ -253,16 +255,28 @@ const AdminNavigator: React.FC = () => {
         tabBarIcon: ({ focused, color, size }) => {
           const name =
             route.name === "DashboardTab"
-              ? (focused ? "grid" : "grid-outline")
+              ? focused
+                ? "grid"
+                : "grid-outline"
               : route.name === "UsersTab"
-              ? (focused ? "people" : "people-outline")
+              ? focused
+                ? "people"
+                : "people-outline"
               : route.name === "OrdersTab"
-              ? (focused ? "reader" : "reader-outline") // ⬅ safe alternative to "receipt"
+              ? focused
+                ? "reader"
+                : "reader-outline" // ⬅ safe alternative to "receipt"
               : route.name === "CatalogTab"
-              ? (focused ? "albums" : "albums-outline")
+              ? focused
+                ? "albums"
+                : "albums-outline"
               : route.name === "AnalyticsTab"
-              ? (focused ? "analytics" : "analytics-outline")
-              : (focused ? "settings" : "settings-outline");
+              ? focused
+                ? "analytics"
+                : "analytics-outline"
+              : focused
+              ? "settings"
+              : "settings-outline";
 
           return <Ionicons name={name as any} size={size} color={color} />;
         },
@@ -271,10 +285,10 @@ const AdminNavigator: React.FC = () => {
         tabBarStyle: {
           backgroundColor: "#ffffff",
           borderTopWidth: 1,
-          borderTopColor: "#e0e0e0",
-          paddingBottom: Platform.OS === "ios" ? 20 : 5,
+          borderTopColor: "#fff",
+          paddingBottom: Platform.OS === "ios" ? 30 : 5,
           paddingTop: 5,
-          height: Platform.OS === "ios" ? 85 : 60,
+          height: Platform.OS === "ios" ? 86 : 60,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
         headerShown: false,

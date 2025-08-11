@@ -12,7 +12,7 @@ const UserManagementScreen: React.FC<{
   console.log(theme);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left","right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>

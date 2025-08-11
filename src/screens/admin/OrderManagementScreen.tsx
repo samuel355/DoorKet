@@ -388,7 +388,7 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left","right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {loading && orders.length === 0 ? (

@@ -315,7 +315,7 @@ const ItemManagementScreen: React.FC<{ navigation?: any; route?: { params?: { ca
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left","right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {loading && items.length === 0 ? (
