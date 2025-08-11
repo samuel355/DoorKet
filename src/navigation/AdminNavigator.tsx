@@ -1,6 +1,6 @@
 // src/navigation/AdminNavigator.tsx
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -14,15 +14,16 @@ import ItemManagementScreen from "../screens/admin/ItemManagementScreen";
 import AdminSettingsScreen from "../screens/admin/AdminSettingsScreen";
 import NotificationsScreen from "../screens/admin/NotificationsScreen";
 import ProfileScreen from "../screens/admin/ProfileScreen";
+import AnalyticsScreen from "../screens/admin/AnalyticsScreen";
 
 // --- other placeholders (keep if you use them) ---
 import {
-  AnalyticsScreen,
   OrderDetailsScreen,
   ReportsScreen,
   SettingsScreen,
   UserDetailsScreen,
 } from "../screens/PlaceholderScreens";
+import { NavigatorScreenParams } from "@react-navigation/native";
 
 // ===================== Types =====================
 type DashboardStackParamList = {
@@ -65,7 +66,7 @@ type AdminTabParamList = {
   OrdersTab: undefined;
   CatalogTab: undefined;
   AnalyticsTab: undefined;
-  SettingsTab: undefined;
+  SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
 };
 
 // ===================== Navigators =====================
@@ -79,7 +80,7 @@ const AnalyticsStack = createStackNavigator<AnalyticsStackParamList>();
 const SettingsStack = createStackNavigator<SettingsStackParamList>();
 
 const stackScreenOptions = {
-  headerStyle: { backgroundColor: "#FF9800" },
+  headerStyle: { backgroundColor: "#FF9800"},
   headerTintColor: "#ffffff",
   headerTitleStyle: { fontWeight: "bold" as const },
 };
@@ -90,17 +91,40 @@ const DashboardStackNavigator = () => (
     <DashboardStack.Screen
       name="Dashboard"
       component={AdminDashboardScreen}
-      options={{
+      options={({ navigation }) => ({
         title: "DoorKet Admin",
         headerRight: () => (
-          <Ionicons
-            name="notifications-outline"
-            size={24}
-            color="#ffffff"
-            style={{ marginRight: 16 }}
-          />
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable onPress={() =>
+                navigation.getParent()?.navigate("SettingsTab", {
+                  screen: "Profile",
+                })
+              }>
+              <Ionicons
+                name="notifications-outline"
+                size={26}
+                color="#ffffff"
+                style={{ marginRight: 16 }}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                navigation.getParent()?.navigate("SettingsTab", {
+                  screen: "Profile",
+                })
+              }
+            >
+              <Ionicons
+                name="person-circle-outline"
+                size={26}
+                color="#ffffff"
+                style={{ marginRight: 12 }}
+              />
+            </Pressable>
+          </View>
         ),
-      }}
+
+      })}
     />
     <DashboardStack.Screen
       name="Reports"
@@ -226,7 +250,27 @@ const SettingsStackNavigator = () => (
     <SettingsStack.Screen
       name="AdminSettings"
       component={AdminSettingsScreen}
-      options={{ title: "Admin Settings" }}
+      options={({ navigation }) => ({
+        title: "Admin Settings",
+        headerRight: () => (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable
+              onPress={() =>
+                navigation.getParent()?.navigate("SettingsTab", {
+                  screen: "Profile",
+                })
+              }
+            >
+              <Ionicons
+                name="person-circle-outline"
+                size={26}
+                color="#ffffff"
+                style={{ marginRight: 12 }}
+              />
+            </Pressable>
+          </View>
+        ),
+      })}
     />
     <SettingsStack.Screen
       name="Profile"
@@ -323,6 +367,13 @@ const AdminNavigator: React.FC = () => {
         name="SettingsTab"
         component={SettingsStackNavigator}
         options={{ tabBarLabel: "Settings" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Force the nested stack back to its root when the tab is tapped
+            navigation.navigate("SettingsTab", { screen: "AdminSettings" });
+          },
+        })}
+        
       />
     </Tab.Navigator>
   );

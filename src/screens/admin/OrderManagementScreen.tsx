@@ -41,26 +41,40 @@ type UIOrder = BaseOrder & {
 type RGB = { r: number; g: number; b: number };
 const parseHex = (hex: string): RGB | null => {
   const h = hex.replace("#", "").trim();
-  if (h.length === 3) return { r: parseInt(h[0]+h[0],16), g: parseInt(h[1]+h[1],16), b: parseInt(h[2]+h[2],16) };
+  if (h.length === 3)
+    return {
+      r: parseInt(h[0] + h[0], 16),
+      g: parseInt(h[1] + h[1], 16),
+      b: parseInt(h[2] + h[2], 16),
+    };
   if (h.length >= 6) {
-    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-    if ([r,g,b].every(Number.isFinite)) return { r,g,b };
+    const r = parseInt(h.slice(0, 2), 16),
+      g = parseInt(h.slice(2, 4), 16),
+      b = parseInt(h.slice(4, 6), 16);
+    if ([r, g, b].every(Number.isFinite)) return { r, g, b };
   }
   return null;
 };
 const toRGB = (color: string, fallback = "#FF9800"): RGB =>
   parseHex(color) ?? parseHex(fallback)!;
 const rgba = (color: string, a = 1) => {
-  const { r,g,b } = toRGB(color);
+  const { r, g, b } = toRGB(color);
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, a))})`;
 };
 
 /* ---------- consts ---------- */
 const PAGE_SIZE = 20;
-const ORDER_STATUSES = ["pending","accepted","shopping","delivering","completed","cancelled"] as const;
-type StatusFilter = "all" | typeof ORDER_STATUSES[number];
+const ORDER_STATUSES = [
+  "pending",
+  "accepted",
+  "shopping",
+  "delivering",
+  "completed",
+  "cancelled",
+] as const;
+type StatusFilter = "all" | (typeof ORDER_STATUSES)[number];
 
-const STATUS_COLORS: Record<typeof ORDER_STATUSES[number], string> = {
+const STATUS_COLORS: Record<(typeof ORDER_STATUSES)[number], string> = {
   pending: "#A78BFA",
   accepted: "#22C55E",
   shopping: "#0EA5E9",
@@ -70,11 +84,18 @@ const STATUS_COLORS: Record<typeof ORDER_STATUSES[number], string> = {
 };
 
 const currency = (n: number | null | undefined) =>
-  (n ?? 0).toLocaleString(undefined, { style: "currency", currency: "GHS", maximumFractionDigits: 0 });
+  (n ?? 0).toLocaleString(undefined, {
+    style: "currency",
+    currency: "GHS",
+    maximumFractionDigits: 0,
+  });
 
 const useDebounced = (value: string, delay = 300) => {
   const [v, setV] = useState(value);
-  useEffect(() => { const id = setTimeout(() => setV(value), delay); return () => clearTimeout(id); }, [value, delay]);
+  useEffect(() => {
+    const id = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
   return v;
 };
 
@@ -98,7 +119,9 @@ const shadowMd = Platform.select({
   android: { elevation: 3 },
 });
 
-const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+const OrderManagementScreen: React.FC<{ navigation?: any }> = ({
+  navigation,
+}) => {
   const theme = useTheme();
   const PRIMARY = theme?.colors?.primary ?? "#FF9800";
 
@@ -112,19 +135,25 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [selected, setSelected] = useState<UIOrder | null>(null);
-  const [snack, setSnack] = useState<{ visible: boolean; text: string }>({ visible: false, text: "" });
+  const [snack, setSnack] = useState<{ visible: boolean; text: string }>({
+    visible: false,
+    text: "",
+  });
 
   /* ---------- helpers ---------- */
-  const matchesFilters = useCallback((o: UIOrder) => {
-    if (status !== "all" && o.status !== status) return false;
-    if (q.trim().length > 0) {
-      const s = q.trim().toLowerCase();
-      const orderNo = String(o.order_number ?? "").toLowerCase();
-      const customer = String(o.customer_name ?? "").toLowerCase();
-      if (!orderNo.includes(s) && !customer.includes(s)) return false;
-    }
-    return true;
-  }, [status, q]);
+  const matchesFilters = useCallback(
+    (o: UIOrder) => {
+      if (status !== "all" && o.status !== status) return false;
+      if (q.trim().length > 0) {
+        const s = q.trim().toLowerCase();
+        const orderNo = String(o.order_number ?? "").toLowerCase();
+        const customer = String(o.customer_name ?? "").toLowerCase();
+        if (!orderNo.includes(s) && !customer.includes(s)) return false;
+      }
+      return true;
+    },
+    [status, q]
+  );
 
   const fetchPage = useCallback(
     async (pageIndex: number) => {
@@ -162,7 +191,7 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
     const next = page + 1;
     try {
       const { rows, count } = await fetchPage(next);
-      setOrders(prev => [...prev, ...rows]);
+      setOrders((prev) => [...prev, ...rows]);
       setHasMore((next + 1) * PAGE_SIZE < (count ?? 0));
       setPage(next);
     } catch (e) {
@@ -177,54 +206,77 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
     setRefreshing(false);
   }, [loadFirst]);
 
-  useEffect(() => { loadFirst(); }, [q, status, loadFirst]);
+  useEffect(() => {
+    loadFirst();
+  }, [q, status, loadFirst]);
 
   /* ---------- realtime: INSERT / UPDATE / DELETE ---------- */
   useEffect(() => {
     const channel = supabase
       .channel("orders_admin_feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload: any) => {
-        const { eventType, new: newRow, old: oldRow } = payload;
-        setOrders((prev) => {
-          let next = prev.slice();
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        (payload: any) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
+          setOrders((prev) => {
+            let next = prev.slice();
 
-          if (eventType === "INSERT") {
-            const row: UIOrder = newRow;
-            if (matchesFilters(row) && !next.find(x => x.id === row.id)) {
-              next = [row, ...next];
-              setSnack({ visible: true, text: `Order #${row.order_number ?? ""} created` });
+            if (eventType === "INSERT") {
+              const row: UIOrder = newRow;
+              if (matchesFilters(row) && !next.find((x) => x.id === row.id)) {
+                next = [row, ...next];
+                setSnack({
+                  visible: true,
+                  text: `Order #${row.order_number ?? ""} created`,
+                });
+              }
+            } else if (eventType === "UPDATE") {
+              const row: UIOrder = newRow;
+              const idx = next.findIndex((x) => x.id === row.id);
+              const wasVisible = idx >= 0;
+              const nowMatches = matchesFilters(row);
+
+              if (wasVisible && nowMatches) {
+                next[idx] = row;
+              } else if (wasVisible && !nowMatches) {
+                next.splice(idx, 1);
+              } else if (!wasVisible && nowMatches) {
+                next = [row, ...next];
+              }
+              setSnack({
+                visible: true,
+                text: `Order #${row.order_number ?? ""} → ${row.status}`,
+              });
+            } else if (eventType === "DELETE") {
+              const row: UIOrder = oldRow;
+              next = next.filter((x) => x.id !== row.id);
+              setSnack({
+                visible: true,
+                text: `Order #${row.order_number ?? ""} deleted`,
+              });
             }
-          } else if (eventType === "UPDATE") {
-            const row: UIOrder = newRow;
-            const idx = next.findIndex(x => x.id === row.id);
-            const wasVisible = idx >= 0;
-            const nowMatches = matchesFilters(row);
 
-            if (wasVisible && nowMatches) {
-              next[idx] = row;
-            } else if (wasVisible && !nowMatches) {
-              next.splice(idx, 1);
-            } else if (!wasVisible && nowMatches) {
-              next = [row, ...next];
-            }
-            setSnack({ visible: true, text: `Order #${row.order_number ?? ""} → ${row.status}` });
-          } else if (eventType === "DELETE") {
-            const row: UIOrder = oldRow;
-            next = next.filter(x => x.id !== row.id);
-            setSnack({ visible: true, text: `Order #${row.order_number ?? ""} deleted` });
-          }
-
-          return next;
-        });
-      })
+            return next;
+          });
+        }
+      )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [matchesFilters]);
 
   /* ---------- actions ---------- */
   const nextStatus = (s: OrderStatus): OrderStatus => {
-    const flow: OrderStatus[] = ["pending","accepted","shopping","delivering","completed"];
+    const flow: OrderStatus[] = [
+      "pending",
+      "accepted",
+      "shopping",
+      "delivering",
+      "completed",
+    ];
     const i = flow.indexOf(s);
     if (i < 0 || i === flow.length - 1) return s;
     return flow[i + 1];
@@ -235,20 +287,27 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
     if (ns === o.status) return;
 
     // optimistic update
-    setOrders(prev => prev.map(x => (x.id === o.id ? { ...x, status: ns } : x)));
-    setSelected(s => (s && s.id === o.id ? { ...s, status: ns } : s));
+    setOrders((prev) =>
+      prev.map((x) => (x.id === o.id ? { ...x, status: ns } : x))
+    );
+    setSelected((s) => (s && s.id === o.id ? { ...s, status: ns } : s));
 
     try {
       const { data, error } = await OrderAdmin.updateStatus(o.id, ns);
       if (error) throw new Error(error);
       const updated = data as UIOrder;
-      setOrders(prev => prev.map(x => (x.id === o.id ? updated : x)));
-      setSelected(s => (s && s.id === o.id ? updated : s));
-      setSnack({ visible: true, text: `Order #${updated.order_number ?? ""} → ${updated.status}` });
+      setOrders((prev) => prev.map((x) => (x.id === o.id ? updated : x)));
+      setSelected((s) => (s && s.id === o.id ? updated : s));
+      setSnack({
+        visible: true,
+        text: `Order #${updated.order_number ?? ""} → ${updated.status}`,
+      });
     } catch (e) {
       // rollback if failed
-      setOrders(prev => prev.map(x => (x.id === o.id ? { ...x, status: o.status } : x)));
-      setSelected(s => (s && s.id === o.id ? { ...s, status: o.status } : s));
+      setOrders((prev) =>
+        prev.map((x) => (x.id === o.id ? { ...x, status: o.status } : x))
+      );
+      setSelected((s) => (s && s.id === o.id ? { ...s, status: o.status } : s));
       console.error("advance failed:", e);
       setSnack({ visible: true, text: "Failed to update order status" });
     }
@@ -259,20 +318,32 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
 
     const old = o.status;
     // optimistic
-    setOrders(prev => prev.map(x => (x.id === o.id ? { ...x, status: "cancelled" } : x)));
-    setSelected(s => (s && s.id === o.id ? { ...s, status: "cancelled" } : s));
+    setOrders((prev) =>
+      prev.map((x) => (x.id === o.id ? { ...x, status: "cancelled" } : x))
+    );
+    setSelected((s) =>
+      s && s.id === o.id ? { ...s, status: "cancelled" } : s
+    );
 
     try {
-      const { data, error } = await OrderAdmin.updateStatus(o.id, "cancelled" as any);
+      const { data, error } = await OrderAdmin.updateStatus(
+        o.id,
+        "cancelled" as any
+      );
       if (error) throw new Error(error);
       const updated = data as UIOrder;
-      setOrders(prev => prev.map(x => (x.id === o.id ? updated : x)));
-      setSelected(s => (s && s.id === o.id ? updated : s));
-      setSnack({ visible: true, text: `Order #${updated.order_number ?? ""} cancelled` });
+      setOrders((prev) => prev.map((x) => (x.id === o.id ? updated : x)));
+      setSelected((s) => (s && s.id === o.id ? updated : s));
+      setSnack({
+        visible: true,
+        text: `Order #${updated.order_number ?? ""} cancelled`,
+      });
     } catch (e) {
       // rollback
-      setOrders(prev => prev.map(x => (x.id === o.id ? { ...x, status: old } : x)));
-      setSelected(s => (s && s.id === o.id ? { ...s, status: old } : s));
+      setOrders((prev) =>
+        prev.map((x) => (x.id === o.id ? { ...x, status: old } : x))
+      );
+      setSelected((s) => (s && s.id === o.id ? { ...s, status: old } : s));
       console.error("cancel failed:", e);
       setSnack({ visible: true, text: "Failed to cancel order" });
     }
@@ -281,9 +352,11 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   /* ---------- derived summaries ---------- */
   const summary = useMemo(() => {
     const total = orders.length;
-    const pending = orders.filter(o => o.status === "pending").length;
-    const active = orders.filter(o => ["accepted","shopping","delivering"].includes(String(o.status))).length;
-    const done = orders.filter(o => o.status === "completed").length;
+    const pending = orders.filter((o) => o.status === "pending").length;
+    const active = orders.filter((o) =>
+      ["accepted", "shopping", "delivering"].includes(String(o.status))
+    ).length;
+    const done = orders.filter((o) => o.status === "completed").length;
     return { total, pending, active, done };
   }, [orders]);
 
@@ -291,14 +364,25 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   const Header = () => (
     <View style={styles.headerWrap}>
       <View style={[styles.headerRow, shadowMd]}>
-        <View style={[styles.iconContainer, { backgroundColor: rgba(PRIMARY, 0.12) }]}>
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: rgba(PRIMARY, 0.12) },
+          ]}
+        >
           <Ionicons name="cube" size={20} color={PRIMARY} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Order Management</Text>
           <Text style={styles.subtitle}>Track, update, and fulfill orders</Text>
         </View>
-        <IconButton icon="refresh" onPress={onRefresh} size={20} style={styles.refreshBtn} iconColor={PRIMARY} />
+        <IconButton
+          icon="refresh"
+          onPress={onRefresh}
+          size={20}
+          style={styles.refreshBtn}
+          iconColor={PRIMARY}
+        />
       </View>
 
       <View style={[styles.card, shadowSm]}>
@@ -312,12 +396,15 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
         <Divider style={styles.divider} />
         <Text style={styles.sectionTitle}>Status</Text>
         <View style={styles.chipsRow}>
-          {(["all", ...ORDER_STATUSES] as const).map(s => (
+          {(["all", ...ORDER_STATUSES] as const).map((s) => (
             <Chip
               key={s}
               selected={status === s}
               onPress={() => setStatus(s)}
-              style={[styles.chip, status === s && { backgroundColor: rgba(PRIMARY, 0.12) }]}
+              style={[
+                styles.chip,
+                status === s && { backgroundColor: rgba(PRIMARY, 0.12) },
+              ]}
               textStyle={{ color: status === s ? PRIMARY : "#0F172A" }}
               showSelectedCheck
             >
@@ -340,7 +427,9 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   /* ---------- empty ---------- */
   const Empty = () => (
     <View style={styles.emptyWrap}>
-      <View style={[styles.emptyIcon, { backgroundColor: rgba(PRIMARY, 0.12) }]}>
+      <View
+        style={[styles.emptyIcon, { backgroundColor: rgba(PRIMARY, 0.12) }]}
+      >
         <Ionicons name="cube-outline" size={24} color={PRIMARY} />
       </View>
       <Text style={styles.emptyTitle}>No orders</Text>
@@ -350,7 +439,8 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
 
   /* ---------- row ---------- */
   const renderItem = ({ item }: { item: UIOrder }) => {
-    const pillColor = STATUS_COLORS[item.status as keyof typeof STATUS_COLORS] ?? "#64748B";
+    const pillColor =
+      STATUS_COLORS[item.status as keyof typeof STATUS_COLORS] ?? "#64748B";
     return (
       <Card style={[styles.rowCard, shadowSm]}>
         <Pressable
@@ -366,16 +456,34 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
               color={PRIMARY}
             />
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.rowName}>Order #{item.order_number ?? "—"}</Text>
-              <Text style={styles.rowSub}>
-                {item.customer_name ?? "Unknown customer"} • {currency(item.total_amount)}
+              <Text style={styles.rowName}>
+                Order #{item.order_number ?? "—"}
               </Text>
-              <View style={{ flexDirection: "row", marginTop: 6, alignItems: "center" }}>
+              <Text style={styles.rowSub}>
+                {item.customer_name ?? "Unknown customer"} •{" "}
+                {currency(item.total_amount)}
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  marginTop: 6,
+                  alignItems: "center",
+                }}
+              >
                 <StatusPill label={String(item.status)} color={pillColor} />
                 {item.created_at ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", marginLeft: 10 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginLeft: 10,
+                    }}
+                  >
                     <Ionicons name="time-outline" size={12} color="#94A3B8" />
-                    <Text style={styles.rowMeta}> {new Date(item.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.rowMeta}>
+                      {" "}
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -388,7 +496,7 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["left","right"]}>
+    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {loading && orders.length === 0 ? (
@@ -405,7 +513,9 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
           ListEmptyComponent={Empty}
           onEndReachedThreshold={0.3}
           onEndReached={loadMore}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
           ListFooterComponent={
             hasMore ? (
               <View style={styles.footerLoading}>
@@ -425,7 +535,13 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
         >
           {selected && (
             <View>
-              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
                 <Avatar.Text
                   size={44}
                   label={String(selected.order_number ?? "—").slice(-2)}
@@ -433,9 +549,12 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                   color={PRIMARY}
                 />
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.modalName}>Order #{selected.order_number ?? "—"}</Text>
+                  <Text style={styles.modalName}>
+                    Order #{selected.order_number ?? "—"}
+                  </Text>
                   <Text style={styles.modalSub}>
-                    {selected.customer_name ?? "Unknown"} • {currency(selected.total_amount)}
+                    {selected.customer_name ?? "Unknown"} •{" "}
+                    {currency(selected.total_amount)}
                   </Text>
                 </View>
                 <IconButton icon="close" onPress={() => setSelected(null)} />
@@ -455,27 +574,56 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                           // optimistic
                           const old = selected.status as OrderStatus;
                           setSelected({ ...selected, status: s });
-                          setOrders(prev => prev.map(x => (x.id === selected.id ? { ...x, status: s } : x)));
+                          setOrders((prev) =>
+                            prev.map((x) =>
+                              x.id === selected.id ? { ...x, status: s } : x
+                            )
+                          );
                           try {
-                            const { data, error } = await OrderAdmin.updateStatus(selected.id, s as any);
+                            const { data, error } =
+                              await OrderAdmin.updateStatus(
+                                selected.id,
+                                s as any
+                              );
                             if (error) throw new Error(error);
                             const updated = data as UIOrder;
                             setSelected(updated);
-                            setOrders(prev => prev.map(x => (x.id === updated.id ? updated : x)));
-                            setSnack({ visible: true, text: `Order #${updated.order_number ?? ""} → ${updated.status}` });
+                            setOrders((prev) =>
+                              prev.map((x) =>
+                                x.id === updated.id ? updated : x
+                              )
+                            );
+                            setSnack({
+                              visible: true,
+                              text: `Order #${updated.order_number ?? ""} → ${
+                                updated.status
+                              }`,
+                            });
                           } catch (e) {
                             // rollback
                             setSelected({ ...selected, status: old });
-                            setOrders(prev => prev.map(x => (x.id === selected.id ? { ...x, status: old } : x)));
-                            setSnack({ visible: true, text: "Failed to update status" });
+                            setOrders((prev) =>
+                              prev.map((x) =>
+                                x.id === selected.id ? { ...x, status: old } : x
+                              )
+                            );
+                            setSnack({
+                              visible: true,
+                              text: "Failed to update status",
+                            });
                           }
                         }
                       }}
                       style={[
                         styles.chip,
-                        selected.status === s && { backgroundColor: rgba(STATUS_COLORS[s], 0.14) },
+                        selected.status === s && {
+                          backgroundColor: rgba(STATUS_COLORS[s], 0.14),
+                        },
                       ]}
-                      textStyle={{ color: selected.status === s ? STATUS_COLORS[s] : "#0F172A" }}
+                      textStyle={{
+                        color:
+                          selected.status === s ? STATUS_COLORS[s] : "#0F172A",
+                      }}
                       showSelectedCheck
                     >
                       {s[0].toUpperCase() + s.slice(1)}
@@ -513,7 +661,9 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                     style={{ marginTop: 6 }}
                     onPress={() => {
                       setSelected(null);
-                      navigation.navigate?.("OrderDetails", { id: selected.id });
+                      navigation.navigate?.("OrderDetails", {
+                        id: selected.id,
+                      });
                     }}
                     icon="open-in-new"
                   >
@@ -530,7 +680,10 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
         visible={snack.visible}
         onDismiss={() => setSnack({ visible: false, text: "" })}
         duration={2500}
-        action={{ label: "Dismiss", onPress: () => setSnack({ visible: false, text: "" }) }}
+        action={{
+          label: "Dismiss",
+          onPress: () => setSnack({ visible: false, text: "" }),
+        }}
       >
         {snack.text}
       </Snackbar>
@@ -539,17 +692,25 @@ const OrderManagementScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
 };
 
 /* ---------- small components ---------- */
-const KPI: React.FC<{ label: string; value: number | string }> = ({ label, value }) => (
+const KPI: React.FC<{ label: string; value: number | string }> = ({
+  label,
+  value,
+}) => (
   <View style={styles.kpiItem}>
     <Text style={styles.kpiValue}>{value}</Text>
     <Text style={styles.kpiLabel}>{label}</Text>
   </View>
 );
 
-const StatusPill: React.FC<{ label: string; color: string }> = ({ label, color }) => (
+const StatusPill: React.FC<{ label: string; color: string }> = ({
+  label,
+  color,
+}) => (
   <View style={[styles.pill, { backgroundColor: rgba(color, 0.15) }]}>
     <View style={[styles.dot, { backgroundColor: color }]} />
-    <Text style={[styles.pillText, { color }]}>{label[0].toUpperCase() + label.slice(1)}</Text>
+    <Text style={[styles.pillText, { color }]}>
+      {label[0].toUpperCase() + label.slice(1)}
+    </Text>
   </View>
 );
 
@@ -570,8 +731,12 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   iconContainer: {
-    width: 44, height: 44, borderRadius: 12,
-    alignItems: "center", justifyContent: "center", marginRight: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   title: { fontSize: 20, fontWeight: "800", color: "#0F172A" },
   subtitle: { fontSize: 13, color: "#64748B", marginTop: 2 },
@@ -587,7 +752,12 @@ const styles = StyleSheet.create({
   search: { borderRadius: 12, elevation: 0 },
   divider: { height: 1, backgroundColor: "#EEF2F7", marginVertical: 12 },
 
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: "#0F172A", marginBottom: 8 },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
   chipsRow: { flexDirection: "row", flexWrap: "wrap" },
   chip: { marginRight: 8, marginBottom: 8 },
 
@@ -609,7 +779,12 @@ const styles = StyleSheet.create({
 
   rowCard: { backgroundColor: "#fff", borderRadius: 14, marginBottom: 12 },
   rowPress: { borderRadius: 14, overflow: "hidden" },
-  rowFlat: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 10 },
+  rowFlat: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
   rowName: { fontSize: 15, color: "#0F172A", fontWeight: "700" },
   rowSub: { fontSize: 12, color: "#64748B", marginTop: 2 },
   rowMeta: { fontSize: 11, color: "#94A3B8" },
@@ -628,13 +803,22 @@ const styles = StyleSheet.create({
 
   emptyWrap: { alignItems: "center", paddingVertical: 40 },
   emptyIcon: {
-    width: 54, height: 54, borderRadius: 14,
-    alignItems: "center", justifyContent: "center", marginBottom: 10,
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   emptyTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
   emptySub: { fontSize: 13, color: "#64748B" },
 
-  modalFlat: { marginHorizontal: 16, backgroundColor: "#fff", borderRadius: 16, padding: 16 },
+  modalFlat: {
+    marginHorizontal: 16,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+  },
   modalName: { fontSize: 17, fontWeight: "800", color: "#0F172A" },
   modalSub: { fontSize: 12, color: "#64748B" },
   modalLabel: { fontSize: 12, color: "#64748B", marginTop: 4, marginBottom: 6 },
