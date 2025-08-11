@@ -1,294 +1,270 @@
+// src/navigation/AdminNavigator.tsx
+import React from "react";
+import { Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
-import { Platform } from "react-native";
-import { AdminSettingsScreen, AnalyticsScreen, CategoryManagementScreen, ItemManagementScreen, NotificationsScreen, OrderDetailsScreen, ProfileScreen, ReportsScreen, SettingsScreen, UserDetailsScreen } from "../screens/PlaceholderScreens";
+
+// --- Admin screens ---
 import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 import UserManagementScreen from "../screens/admin/UserManagementScreen";
 import OrderManagementScreen from "../screens/admin/OrderManagementScreen";
+import CategoryManagementScreen from "../screens/admin/CategoryManagementScreen";
+import ItemManagementScreen from "../screens/admin/ItemManagementScreen";
 
+// --- other placeholders (keep if you use them) ---
+import {
+  AdminSettingsScreen,
+  AnalyticsScreen,
+  NotificationsScreen,
+  OrderDetailsScreen,
+  ProfileScreen,
+  ReportsScreen,
+  SettingsScreen,
+  UserDetailsScreen,
+} from "../screens/PlaceholderScreens";
 
-const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
-
-// Dashboard Stack Navigator
-const DashboardStackNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#FF9800",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-      }}
-    >
-      <Stack.Screen
-        name="Dashboard"
-        component={AdminDashboardScreen}
-        options={{
-          title: "DoorKet Admin",
-          headerRight: () => (
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color="#ffffff"
-              style={{ marginRight: 16 }}
-            />
-          ),
-        }}
-      />
-      <Stack.Screen
-        name="Reports"
-        component={ReportsScreen}
-        options={{
-          title: "Reports & Analytics",
-        }}
-      />
-    </Stack.Navigator>
-  );
+// ===================== Types =====================
+type DashboardStackParamList = {
+  Dashboard: undefined;
+  Reports: undefined;
 };
 
-// Users Management Stack Navigator
-const UsersStackNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#FF9800",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-      }}
-    >
-      <Stack.Screen
-        name="UserManagement"
-        component={UserManagementScreen}
-        options={{
-          title: "User Management",
-          headerRight: () => (
-            <Ionicons
-              name="add-outline"
-              size={24}
-              color="#ffffff"
-              style={{ marginRight: 16 }}
-            />
-          ),
-        }}
-      />
-      <Stack.Screen
-        name="UserDetails"
-        component={UserDetailsScreen}
-        options={({ route }) => ({
-          title: (route.params as any)?.userName || "User Details",
-        })}
-      />
-    </Stack.Navigator>
-  );
+type UsersStackParamList = {
+  UserManagement: undefined;
+  UserDetails: { userName?: string; userId?: string } | undefined;
 };
 
-// Orders Management Stack Navigator
-const OrdersStackNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#FF9800",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-      }}
-    >
-      <Stack.Screen
-        name="OrderManagement"
-        component={OrderManagementScreen}
-        options={{
-          title: "Order Management",
-          headerRight: () => (
-            <Ionicons
-              name="filter-outline"
-              size={24}
-              color="#ffffff"
-              style={{ marginRight: 16 }}
-            />
-          ),
-        }}
-      />
-      <Stack.Screen
-        name="OrderDetails"
-        component={OrderDetailsScreen}
-        options={({ route }) => ({
-          title: `Order #${(route.params as any)?.orderId?.slice(-6) || "XXXXXX"}`,
-        })}
-      />
-    </Stack.Navigator>
-  );
+type OrdersStackParamList = {
+  OrderManagement: undefined;
+  OrderDetails: { orderId: string };
 };
 
-// Catalog Management Stack Navigator
-const CatalogStackNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#FF9800",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-      }}
-    >
-      <Stack.Screen
-        name="CategoryManagement"
-        component={CategoryManagementScreen}
-        options={{
-          title: "Catalog Management",
-          headerRight: () => (
-            <Ionicons
-              name="add-outline"
-              size={24}
-              color="#ffffff"
-              style={{ marginRight: 16 }}
-            />
-          ),
-        }}
-      />
-      <Stack.Screen
-        name="ItemManagement"
-        component={ItemManagementScreen}
-        options={({ route }) => ({
-          title: (route.params as any)?.categoryName || "Items",
-        })}
-      />
-    </Stack.Navigator>
-  );
+type CatalogStackParamList = {
+  CategoryManagement: undefined;
+  ItemManagement: { categoryId?: string; categoryName?: string; openNew?: boolean  } | undefined;
 };
 
-// Analytics Stack Navigator
-const AnalyticsStackNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#FF9800",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-      }}
-    >
-      <Stack.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
-        options={{
-          title: "Analytics & Insights",
-          headerRight: () => (
-            <Ionicons
-              name="download-outline"
-              size={24}
-              color="#ffffff"
-              style={{ marginRight: 16 }}
-            />
-          ),
-        }}
-      />
-      <Stack.Screen
-        name="Reports"
-        component={ReportsScreen}
-        options={{
-          title: "Detailed Reports",
-        }}
-      />
-    </Stack.Navigator>
-  );
+type AnalyticsStackParamList = {
+  Analytics: undefined;
+  Reports: undefined;
 };
 
-// Settings Stack Navigator
-const SettingsStackNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#FF9800",
-        },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-      }}
-    >
-      <Stack.Screen
-        name="AdminSettings"
-        component={AdminSettingsScreen}
-        options={{
-          title: "Admin Settings",
-        }}
-      />
-      <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          title: "Admin Profile",
-        }}
-      />
-      <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          title: "App Settings",
-        }}
-      />
-      <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{
-          title: "Notifications",
-        }}
-      />
-    </Stack.Navigator>
-  );
+type SettingsStackParamList = {
+  AdminSettings: undefined;
+  Profile: undefined;
+  Settings: undefined;
+  Notifications: undefined;
 };
 
+type AdminTabParamList = {
+  DashboardTab: undefined;
+  UsersTab: undefined;
+  OrdersTab: undefined;
+  CatalogTab: undefined;
+  AnalyticsTab: undefined;
+  SettingsTab: undefined;
+};
+
+// ===================== Navigators =====================
+const Tab = createBottomTabNavigator<AdminTabParamList>();
+
+const DashboardStack = createStackNavigator<DashboardStackParamList>();
+const UsersStack = createStackNavigator<UsersStackParamList>();
+const OrdersStack = createStackNavigator<OrdersStackParamList>();
+const CatalogStack = createStackNavigator<CatalogStackParamList>();
+const AnalyticsStack = createStackNavigator<AnalyticsStackParamList>();
+const SettingsStack = createStackNavigator<SettingsStackParamList>();
+
+const stackScreenOptions = {
+  headerStyle: { backgroundColor: "#FF9800" },
+  headerTintColor: "#ffffff",
+  headerTitleStyle: { fontWeight: "bold" as const },
+};
+
+// ----- Dashboard -----
+const DashboardStackNavigator = () => (
+  <DashboardStack.Navigator screenOptions={stackScreenOptions}>
+    <DashboardStack.Screen
+      name="Dashboard"
+      component={AdminDashboardScreen}
+      options={{
+        title: "DoorKet Admin",
+        headerRight: () => (
+          <Ionicons
+            name="notifications-outline"
+            size={24}
+            color="#ffffff"
+            style={{ marginRight: 16 }}
+          />
+        ),
+      }}
+    />
+    <DashboardStack.Screen
+      name="Reports"
+      component={ReportsScreen}
+      options={{ title: "Reports & Analytics" }}
+    />
+  </DashboardStack.Navigator>
+);
+
+// ----- Users -----
+const UsersStackNavigator = () => (
+  <UsersStack.Navigator screenOptions={stackScreenOptions}>
+    <UsersStack.Screen
+      name="UserManagement"
+      component={UserManagementScreen}
+      options={{
+        title: "User Management",
+        headerRight: () => (
+          <Ionicons
+            name="add-outline"
+            size={24}
+            color="#ffffff"
+            style={{ marginRight: 16 }}
+          />
+        ),
+      }}
+    />
+    <UsersStack.Screen
+      name="UserDetails"
+      component={UserDetailsScreen}
+      options={({ route }) => ({
+        title: route.params?.userName || "User Details",
+      })}
+    />
+  </UsersStack.Navigator>
+);
+
+// ----- Orders -----
+const OrdersStackNavigator = () => (
+  <OrdersStack.Navigator screenOptions={stackScreenOptions}>
+    <OrdersStack.Screen
+      name="OrderManagement"
+      component={OrderManagementScreen}
+      options={{
+        title: "Order Management",
+        headerRight: () => (
+          <Ionicons
+            name="funnel-outline"
+            size={24}
+            color="#ffffff"
+            style={{ marginRight: 16 }}
+          />
+        ),
+      }}
+    />
+    <OrdersStack.Screen
+      name="OrderDetails"
+      component={OrderDetailsScreen}
+      options={({ route }) => ({
+        title: `Order #${route.params.orderId.slice(-6)}`,
+      })}
+    />
+  </OrdersStack.Navigator>
+);
+
+// ----- Catalog -----
+const CatalogStackNavigator = () => (
+  <CatalogStack.Navigator screenOptions={stackScreenOptions}>
+    <CatalogStack.Screen
+      name="CategoryManagement"
+      component={CategoryManagementScreen}
+      options={{
+        title: "Catalog Management",
+        headerRight: () => (
+          <Ionicons
+            name="add-outline"
+            size={24}
+            color="#ffffff"
+            style={{ marginRight: 16 }}
+          />
+        ),
+      }}
+    />
+    <CatalogStack.Screen
+      name="ItemManagement"
+      component={ItemManagementScreen}
+      options={({ route }) => ({
+        title: route.params?.categoryName || "Items",
+      })}
+    />
+  </CatalogStack.Navigator>
+);
+
+// ----- Analytics -----
+const AnalyticsStackNavigator = () => (
+  <AnalyticsStack.Navigator screenOptions={stackScreenOptions}>
+    <AnalyticsStack.Screen
+      name="Analytics"
+      component={AnalyticsScreen}
+      options={{
+        title: "Analytics & Insights",
+        headerRight: () => (
+          <Ionicons
+            name="download-outline"
+            size={24}
+            color="#ffffff"
+            style={{ marginRight: 16 }}
+          />
+        ),
+      }}
+    />
+    <AnalyticsStack.Screen
+      name="Reports"
+      component={ReportsScreen}
+      options={{ title: "Detailed Reports" }}
+    />
+  </AnalyticsStack.Navigator>
+);
+
+// ----- Settings -----
+const SettingsStackNavigator = () => (
+  <SettingsStack.Navigator screenOptions={stackScreenOptions}>
+    <SettingsStack.Screen
+      name="AdminSettings"
+      component={AdminSettingsScreen}
+      options={{ title: "Admin Settings" }}
+    />
+    <SettingsStack.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{ title: "Admin Profile" }}
+    />
+    <SettingsStack.Screen
+      name="Settings"
+      component={SettingsScreen}
+      options={{ title: "App Settings" }}
+    />
+    <SettingsStack.Screen
+      name="Notifications"
+      component={NotificationsScreen}
+      options={{ title: "Notifications" }}
+    />
+  </SettingsStack.Navigator>
+);
+
+// ===================== Tabs =====================
 const AdminNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        // Use only icon names that exist in Ionicons to avoid TS issues
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+          const name =
+            route.name === "DashboardTab"
+              ? (focused ? "grid" : "grid-outline")
+              : route.name === "UsersTab"
+              ? (focused ? "people" : "people-outline")
+              : route.name === "OrdersTab"
+              ? (focused ? "reader" : "reader-outline") // ⬅ safe alternative to "receipt"
+              : route.name === "CatalogTab"
+              ? (focused ? "albums" : "albums-outline")
+              : route.name === "AnalyticsTab"
+              ? (focused ? "analytics" : "analytics-outline")
+              : (focused ? "settings" : "settings-outline");
 
-          switch (route.name) {
-            case "DashboardTab":
-              iconName = focused ? "grid" : "grid-outline";
-              break;
-            case "UsersTab":
-              iconName = focused ? "people" : "people-outline";
-              break;
-            case "OrdersTab":
-              iconName = focused ? "receipt" : "receipt-outline";
-              break;
-            case "CatalogTab":
-              iconName = focused ? "library" : "library-outline";
-              break;
-            case "AnalyticsTab":
-              iconName = focused ? "analytics" : "analytics-outline";
-              break;
-            case "SettingsTab":
-              iconName = focused ? "settings" : "settings-outline";
-              break;
-            default:
-              iconName = "ellipse-outline";
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={name as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#FF9800",
         tabBarInactiveTintColor: "#888888",
@@ -300,62 +276,39 @@ const AdminNavigator: React.FC = () => {
           paddingTop: 5,
           height: Platform.OS === "ios" ? 85 : 60,
         },
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "600",
-        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
         headerShown: false,
       })}
     >
       <Tab.Screen
         name="DashboardTab"
         component={DashboardStackNavigator}
-        options={{
-          tabBarLabel: "Dashboard",
-          tabBarBadge: undefined, // Can be used for alerts count
-        }}
+        options={{ tabBarLabel: "Dashboard" }}
       />
-
       <Tab.Screen
         name="UsersTab"
         component={UsersStackNavigator}
-        options={{
-          tabBarLabel: "Users",
-          tabBarBadge: undefined, // Can be used for pending verifications
-        }}
+        options={{ tabBarLabel: "Users" }}
       />
-
       <Tab.Screen
         name="OrdersTab"
         component={OrdersStackNavigator}
-        options={{
-          tabBarLabel: "Orders",
-          tabBarBadge: undefined, // Can be used for disputed orders
-        }}
+        options={{ tabBarLabel: "Orders" }}
       />
-
       <Tab.Screen
         name="CatalogTab"
         component={CatalogStackNavigator}
-        options={{
-          tabBarLabel: "Catalog",
-        }}
+        options={{ tabBarLabel: "Catalog" }}
       />
-
       <Tab.Screen
         name="AnalyticsTab"
         component={AnalyticsStackNavigator}
-        options={{
-          tabBarLabel: "Analytics",
-        }}
+        options={{ tabBarLabel: "Analytics" }}
       />
-
       <Tab.Screen
         name="SettingsTab"
         component={SettingsStackNavigator}
-        options={{
-          tabBarLabel: "Settings",
-        }}
+        options={{ tabBarLabel: "Settings" }}
       />
     </Tab.Navigator>
   );

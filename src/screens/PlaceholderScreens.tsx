@@ -298,15 +298,15 @@ export const ReportsScreen: React.FC<{ navigation: any }> = ({ navigation }) => 
   />
 );
 
-export const CategoryManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
-  <PlaceholderScreen
-    title="Category Management"
-    subtitle="Manage item categories and products"
-    icon="library"
-    color="#FF9800"
-    navigation={navigation}
-  />
-);
+// export const CategoryManagementScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+//   <PlaceholderScreen
+//     title="Category Management"
+//     subtitle="Manage item categories and products"
+//     icon="library"
+//     color="#FF9800"
+//     navigation={navigation}
+//   />
+// );
 
 export const ItemManagementScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => (
   <PlaceholderScreen

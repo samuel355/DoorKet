@@ -1,8 +1,8 @@
 // src/services/admin.ts
 import supabase, { Database } from "./supabase";
 
-// ---------- Helpers ----------
-type Range = { from?: string; to?: string };
+/** ───────── Helpers ───────── */
+type Range = { from?: string | Date | number; to?: string | Date | number };
 
 const toISO = (d: Date | string | number) =>
   typeof d === "string" ? new Date(d).toISOString() : new Date(d).toISOString();
@@ -12,19 +12,13 @@ const todayISO = () => new Date().toISOString();
 const safeSum = (arr: any[], key: string) =>
   arr.reduce((s, x) => s + (Number(x?.[key]) || 0), 0);
 
-function pick<T extends object, K extends keyof T>(o: T, keys: K[]): Pick<T, K> {
-  const out = {} as Pick<T, K>;
-  keys.forEach(k => (out[k] = o[k]));
-  return out;
-}
-
 function errOut(e: any) {
   const msg = e?.message || String(e);
   console.error("[AdminService]", msg, e);
   return { data: null, error: msg };
 }
 
-// ========== DASHBOARD & ANALYTICS ==========
+/** ───────── DASHBOARD & ANALYTICS ───────── */
 export class AdminService {
   static async getDashboardStats() {
     try {
@@ -48,12 +42,16 @@ export class AdminService {
       const users = usersRes.data ?? [];
       const items = itemsRes.data ?? [];
 
-      // revenue only from paid/settled orders
+      // revenue from paid/settled
       const revenue = orders
-        .filter(o => (o.payment_status as any) === "paid" || (o.payment_status as any) === "settled")
+        .filter(
+          (o) =>
+            (o.payment_status as any) === "paid" ||
+            (o.payment_status as any) === "settled"
+        )
         .reduce((s, o) => s + (o.total_amount ?? 0), 0);
 
-      // Last 6 months revenue buckets
+      // last 6 months buckets
       const months: { label: string; y: number; m: number }[] = [];
       const start = new Date();
       start.setMonth(start.getMonth() - 5);
@@ -61,27 +59,34 @@ export class AdminService {
       for (let i = 0; i < 6; i++) {
         const d = new Date(start);
         d.setMonth(start.getMonth() + i);
-        months.push({ label: d.toLocaleString("default", { month: "short" }), y: d.getFullYear(), m: d.getMonth() });
+        months.push({
+          label: d.toLocaleString("default", { month: "short" }),
+          y: d.getFullYear(),
+          m: d.getMonth(),
+        });
       }
 
-      const revenueData = months.map(({ y, m }) => {
-        const total = orders
-          .filter(o => {
+      const revenueData = months.map(({ y, m }) =>
+        orders
+          .filter((o) => {
             const d = new Date(o.created_at);
-            return d.getFullYear() === y && d.getMonth() === m &&
-              ((o.payment_status as any) === "paid" || (o.payment_status as any) === "settled");
+            const paid =
+              (o.payment_status as any) === "paid" ||
+              (o.payment_status as any) === "settled";
+            return d.getFullYear() === y && d.getMonth() === m && paid;
           })
-          .reduce((s, o) => s + (o.total_amount ?? 0), 0);
-        return total;
-      });
+          .reduce((s, o) => s + (o.total_amount ?? 0), 0)
+      );
 
       return {
         data: {
           totalOrders: orders.length,
           revenue,
-          activeUsers: users.filter(u => u.is_active && u.user_type === "student").length,
-          totalProducts: items.filter(i => i.is_available).length,
-          revenueData: { labels: months.map(m => m.label), data: revenueData },
+          activeUsers: users.filter(
+            (u) => u.is_active && u.user_type === "student"
+          ).length,
+          totalProducts: items.filter((i) => i.is_available).length,
+          revenueData: { labels: months.map((m) => m.label), data: revenueData },
         },
         error: null,
       };
@@ -120,11 +125,11 @@ export class AdminService {
       return {
         data: {
           total,
-          students: data.filter(u => u.user_type === "student").length,
-          runners: data.filter(u => u.user_type === "runner").length,
-          admins: data.filter(u => u.user_type === "admin").length,
-          active: data.filter(u => u.is_active).length,
-          inactive: data.filter(u => !u.is_active).length,
+          students: data.filter((u) => u.user_type === "student").length,
+          runners: data.filter((u) => u.user_type === "runner").length,
+          admins: data.filter((u) => u.user_type === "admin").length,
+          active: data.filter((u) => u.is_active).length,
+          inactive: data.filter((u) => !u.is_active).length,
         },
         error: null,
       };
@@ -135,11 +140,11 @@ export class AdminService {
 
   static async getTopItems(limit = 5) {
     try {
+      // NOTE: simple client-side aggregate for small datasets
       const { data, error } = await supabase
         .from("order_items")
         .select("item:items(id,name),quantity")
-        .order("quantity", { ascending: false })
-        .limit(1000); // aggregate client-side (simple & fast for small sets)
+        .limit(1000);
       if (error) throw error;
 
       const map = new Map<string, { id: string; name: string; qty: number }>();
@@ -151,7 +156,9 @@ export class AdminService {
         prev.qty += row.quantity ?? 0;
         map.set(id, prev);
       }
-      const sorted = [...map.values()].sort((a, b) => b.qty - a.qty).slice(0, limit);
+      const sorted = [...map.values()]
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, limit);
       return { data: sorted, error: null };
     } catch (e) {
       return errOut(e);
@@ -165,16 +172,14 @@ export class AdminService {
         .select("item:items(id,name,category_id),quantity");
       if (error) throw error;
 
-      const catAgg = new Map<string, { category_id: string; qty: number }>();
+      const catAgg = new Map<string, number>();
       for (const row of data ?? []) {
         const catId = (row as any).item?.category_id;
         if (!catId) continue;
-        const prev = catAgg.get(catId) ?? { category_id: catId, qty: 0 };
-        prev.qty += row.quantity ?? 0;
-        catAgg.set(catId, prev);
+        catAgg.set(catId, (catAgg.get(catId) ?? 0) + (row.quantity ?? 0));
       }
 
-      // fetch category names
+      // names
       const ids = [...catAgg.keys()];
       let names = new Map<string, string>();
       if (ids.length) {
@@ -182,11 +187,15 @@ export class AdminService {
           .from("categories")
           .select("id,name")
           .in("id", ids);
-        names = new Map((cats ?? []).map(c => [c.id, c.name]));
+        names = new Map((cats ?? []).map((c) => [c.id, c.name]));
       }
 
-      const out = [...catAgg.values()]
-        .map(c => ({ id: c.category_id, name: names.get(c.category_id) ?? "Unknown", qty: c.qty }))
+      const out = ids
+        .map((id) => ({
+          id,
+          name: names.get(id) ?? "Unknown",
+          qty: catAgg.get(id) ?? 0,
+        }))
         .sort((a, b) => b.qty - a.qty)
         .slice(0, limit);
 
@@ -199,39 +208,45 @@ export class AdminService {
   static async getAnalytics(period: "day" | "week" | "month" | "year") {
     try {
       const start = new Date();
-      switch (period) {
-        case "day": start.setDate(start.getDate() - 1); break;
-        case "week": start.setDate(start.getDate() - 7); break;
-        case "month": start.setMonth(start.getMonth() - 1); break;
-        case "year": start.setFullYear(start.getFullYear() - 1); break;
-      }
+      if (period === "day") start.setDate(start.getDate() - 1);
+      if (period === "week") start.setDate(start.getDate() - 7);
+      if (period === "month") start.setMonth(start.getMonth() - 1);
+      if (period === "year") start.setFullYear(start.getFullYear() - 1);
 
       const { data, error } = await supabase
         .from("orders")
         .select("*, order_items(*)")
         .gte("created_at", start.toISOString());
-
       if (error) throw error;
 
       const totalOrders = data?.length ?? 0;
-      const totalRevenue = data?.reduce((s, o) => s + (o.total_amount ?? 0), 0) ?? 0;
+      const totalRevenue =
+        data?.reduce((s, o) => s + (o.total_amount ?? 0), 0) ?? 0;
       const averageOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
 
-      const ordersByStatus = (data ?? []).reduce((acc: Record<string, number>, o) => {
-        const s = o.status as string;
-        acc[s] = (acc[s] ?? 0) + 1;
-        return acc;
-      }, {});
+      const ordersByStatus = (data ?? []).reduce(
+        (acc: Record<string, number>, o) => {
+          const s = String(o.status);
+          acc[s] = (acc[s] ?? 0) + 1;
+          return acc;
+        },
+        {}
+      );
 
       // time-to-complete (mins)
       const ttc: number[] = [];
       for (const o of data ?? []) {
         if (o.accepted_at && o.completed_at) {
-          const dt = (new Date(o.completed_at).getTime() - new Date(o.accepted_at).getTime()) / 60000;
+          const dt =
+            (new Date(o.completed_at).getTime() -
+              new Date(o.accepted_at).getTime()) /
+            60000;
           if (dt > 0) ttc.push(dt);
         }
       }
-      const avgTTC = ttc.length ? ttc.reduce((a, b) => a + b, 0) / ttc.length : 0;
+      const avgTTC = ttc.length
+        ? ttc.reduce((a, b) => a + b, 0) / ttc.length
+        : 0;
 
       // runner productivity
       const byRunner = new Map<string, number>();
@@ -244,7 +259,14 @@ export class AdminService {
         .map(([runner_id, count]) => ({ runner_id, count }));
 
       return {
-        data: { totalOrders, totalRevenue, averageOrderValue, ordersByStatus, avgTimeToCompleteMins: avgTTC, topRunners },
+        data: {
+          totalOrders,
+          totalRevenue,
+          averageOrderValue,
+          ordersByStatus,
+          avgTimeToCompleteMins: avgTTC,
+          topRunners,
+        },
         error: null,
       };
     } catch (e) {
@@ -253,15 +275,7 @@ export class AdminService {
   }
 }
 
-// ========== SETTINGS (key-value) ==========
-/**
- * Requires a table like:
- * create table if not exists app_settings (
- *   key text primary key,
- *   value jsonb not null,
- *   updated_at timestamp with time zone default now()
- * );
- */
+/** ───────── SETTINGS (key-value) ───────── */
 export class SettingsAdmin {
   static async getAll() {
     try {
@@ -306,8 +320,15 @@ export class SettingsAdmin {
   static async updateMany(partial: Record<string, any>) {
     try {
       const entries = Object.entries(partial);
-      const payload = entries.map(([key, value]) => ({ key, value, updated_at: todayISO() }));
-      const { data, error } = await supabase.from("app_settings").upsert(payload).select();
+      const payload = entries.map(([key, value]) => ({
+        key,
+        value,
+        updated_at: todayISO(),
+      }));
+      const { data, error } = await supabase
+        .from("app_settings")
+        .upsert(payload)
+        .select();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -316,11 +337,14 @@ export class SettingsAdmin {
   }
 }
 
-// ========== CATEGORY MANAGEMENT ==========
+/** ───────── CATEGORY MANAGEMENT ───────── */
 export class CategoryAdmin {
   static async list({ includeInactive = true }: { includeInactive?: boolean } = {}) {
     try {
-      let q = supabase.from("categories").select("*").order("sort_order", { ascending: true });
+      let q = supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true });
       if (!includeInactive) q = q.eq("is_active", true);
       const { data, error } = await q;
       if (error) throw error;
@@ -332,7 +356,11 @@ export class CategoryAdmin {
 
   static async create(payload: Database["public"]["Tables"]["categories"]["Insert"]) {
     try {
-      const { data, error } = await supabase.from("categories").insert(payload).select().single();
+      const { data, error } = await supabase
+        .from("categories")
+        .insert(payload)
+        .select()
+        .single();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -342,7 +370,12 @@ export class CategoryAdmin {
 
   static async update(id: string, updates: Database["public"]["Tables"]["categories"]["Update"]) {
     try {
-      const { data, error } = await supabase.from("categories").update(updates).eq("id", id).select().single();
+      const { data, error } = await supabase
+        .from("categories")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -357,7 +390,10 @@ export class CategoryAdmin {
   static async reorder(idsInOrder: string[]) {
     try {
       const updates = idsInOrder.map((id, idx) => ({ id, sort_order: idx + 1 }));
-      const { data, error } = await supabase.from("categories").upsert(updates).select();
+      const { data, error } = await supabase
+        .from("categories")
+        .upsert(updates)
+        .select();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -366,16 +402,12 @@ export class CategoryAdmin {
   }
 
   static async remove(id: string) {
-    // Prefer soft delete:
+    // prefer soft delete
     return this.update(id, { is_active: false } as any);
   }
 }
 
-// ========== ITEM MANAGEMENT ==========
-/**
- * Optional storage bucket for item images:
- *   supabase.storage.createBucket('item-images', { public: true })
- */
+/** ───────── ITEM MANAGEMENT ───────── */
 export class ItemAdmin {
   static async list(params?: { category_id?: string; search?: string; onlyAvailable?: boolean }) {
     try {
@@ -386,7 +418,8 @@ export class ItemAdmin {
 
       if (params?.category_id) q = q.eq("category_id", params.category_id);
       if (params?.onlyAvailable) q = q.eq("is_available", true);
-      if (params?.search) q = q.or(`name.ilike.%${params.search}%,description.ilike.%${params.search}%`);
+      if (params?.search)
+        q = q.or(`name.ilike.%${params.search}%,description.ilike.%${params.search}%`);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -398,7 +431,11 @@ export class ItemAdmin {
 
   static async create(payload: Database["public"]["Tables"]["items"]["Insert"]) {
     try {
-      const { data, error } = await supabase.from("items").insert(payload).select().single();
+      const { data, error } = await supabase
+        .from("items")
+        .insert(payload)
+        .select()
+        .single();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -408,7 +445,12 @@ export class ItemAdmin {
 
   static async update(id: string, updates: Database["public"]["Tables"]["items"]["Update"]) {
     try {
-      const { data, error } = await supabase.from("items").update(updates).eq("id", id).select().single();
+      const { data, error } = await supabase
+        .from("items")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -421,13 +463,17 @@ export class ItemAdmin {
   }
 
   static async remove(id: string) {
-    // Prefer soft: mark unavailable
+    // soft: mark unavailable
     return this.update(id, { is_available: false } as any);
   }
 
   static async bulkAvailability(ids: string[], is_available: boolean) {
     try {
-      const { data, error } = await supabase.from("items").update({ is_available }).in("id", ids).select();
+      const { data, error } = await supabase
+        .from("items")
+        .update({ is_available })
+        .in("id", ids)
+        .select();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -441,14 +487,12 @@ export class ItemAdmin {
       const blob = await response.blob();
       const path = `items/${itemId}/${fileName}`;
 
-      const { data, error } = await supabase.storage.from("item-images").upload(path, blob, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+      const { data, error } = await supabase.storage
+        .from("item-images")
+        .upload(path, blob, { cacheControl: "3600", upsert: true });
       if (error) throw error;
 
       const { data: pub } = supabase.storage.from("item-images").getPublicUrl(path);
-      // Save URL on item (if you keep a 'image_url' column)
       await supabase.from("items").update({ image_url: pub.publicUrl } as any).eq("id", itemId);
 
       return { data: { path: data.path, publicUrl: pub.publicUrl }, error: null };
@@ -458,8 +502,10 @@ export class ItemAdmin {
   }
 }
 
+/** ───────── ORDER MANAGEMENT ───────── */
 // ========== ORDER MANAGEMENT ==========
 export class OrderAdmin {
+  // Consistent return type for list()
   static async list(params?: {
     status?: Database["public"]["Enums"]["order_status"];
     payment_status?: Database["public"]["Enums"]["payment_status"];
@@ -468,7 +514,8 @@ export class OrderAdmin {
     range?: Range;
     limit?: number;
     offset?: number;
-  }) {
+    search?: string; // optional: order_number/customer name
+  }): Promise<{ data: any[]; count: number; error: string | null }> {
     try {
       let q = supabase
         .from("orders")
@@ -483,19 +530,34 @@ export class OrderAdmin {
         )
         .order("created_at", { ascending: false });
 
+      if (params?.search?.trim()) {
+        const s = params.search.trim();
+        // Adjust fields to your schema (keep both if you have both)
+        q = q.or(`order_number.ilike.%${s}%,customer_name.ilike.%${s}%`);
+      }
+
       if (params?.status) q = q.eq("status", params.status);
       if (params?.payment_status) q = q.eq("payment_status", params.payment_status);
       if (params?.student_id) q = q.eq("student_id", params.student_id);
       if (params?.runner_id) q = q.eq("runner_id", params.runner_id);
       if (params?.range?.from) q = q.gte("created_at", toISO(params.range.from));
       if (params?.range?.to) q = q.lte("created_at", toISO(params.range.to));
-      if (params?.limit != null && params?.offset != null) q = q.range(params.offset, params.offset + params.limit - 1);
+      if (params?.limit != null && params?.offset != null) {
+        q = q.range(params.offset, params.offset + params.limit - 1);
+      }
 
       const { data, error, count } = await q;
       if (error) throw error;
-      return { data, count: count ?? data?.length ?? 0, error: null };
-    } catch (e) {
-      return errOut(e);
+
+      return {
+        data: data ?? [],
+        count: count ?? (data?.length ?? 0),
+        error: null,
+      };
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      console.error("[OrderAdmin.list]", msg, e);
+      return { data: [], count: 0, error: msg };
     }
   }
 
@@ -526,13 +588,21 @@ export class OrderAdmin {
     additional?: Partial<Database["public"]["Tables"]["orders"]["Update"]>
   ) {
     try {
-      const updateData: Database["public"]["Tables"]["orders"]["Update"] = { status, ...(additional ?? {}) };
-      const now = todayISO();
-      if (status === "accepted") updateData.accepted_at = now;
-      if (status === "completed") updateData.completed_at = now;
-      if (status === "cancelled") updateData.cancelled_at = now;
+      const updateData: Database["public"]["Tables"]["orders"]["Update"] = {
+        status,
+        ...(additional ?? {}),
+        updated_at: todayISO(),
+      };
+      if (status === "accepted") updateData.accepted_at = todayISO();
+      if (status === "completed") updateData.completed_at = todayISO();
+      if (status === "cancelled") updateData.cancelled_at = todayISO();
 
-      const { data, error } = await supabase.from("orders").update(updateData).eq("id", orderId).select().single();
+      const { data, error } = await supabase
+        .from("orders")
+        .update(updateData)
+        .eq("id", orderId)
+        .select()
+        .single();
       if (error) throw error;
       return { data, error: null };
     } catch (e) {
@@ -544,7 +614,12 @@ export class OrderAdmin {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .update({ runner_id: runnerId, status: "accepted", accepted_at: todayISO(), updated_at: todayISO() })
+        .update({
+          runner_id: runnerId,
+          status: "accepted",
+          accepted_at: todayISO(),
+          updated_at: todayISO(),
+        })
         .eq("id", orderId)
         .in("status", ["pending", "accepted"]) // allow re-assign while accepted
         .select()
@@ -558,9 +633,17 @@ export class OrderAdmin {
 
   static async recalcTotals(orderId: string) {
     try {
-      const { data: items, error } = await supabase.from("order_items").select("quantity,unit_price").eq("order_id", orderId);
+      const { data: items, error } = await supabase
+        .from("order_items")
+        .select("quantity,unit_price")
+        .eq("order_id", orderId);
       if (error) throw error;
-      const total = (items ?? []).reduce((s, it) => s + (it.unit_price ?? 0) * (it.quantity ?? 0), 0);
+
+      const total = (items ?? []).reduce(
+        (s, it) => s + (it.unit_price ?? 0) * (it.quantity ?? 0),
+        0
+      );
+
       const { data, error: upErr } = await supabase
         .from("orders")
         .update({ total_amount: total, updated_at: todayISO() })
@@ -568,6 +651,7 @@ export class OrderAdmin {
         .select()
         .single();
       if (upErr) throw upErr;
+
       return { data, error: null };
     } catch (e) {
       return errOut(e);
@@ -576,9 +660,10 @@ export class OrderAdmin {
 
   static async exportCSV(range?: Range) {
     try {
-      const { data, error } = await this.list({ range, limit: 10000, offset: 0 });
-      if (error) throw new Error(error);
-      const rows = (data as any[]) ?? [];
+      const res = await this.list({ range, limit: 10000, offset: 0 });
+      if (res.error) throw new Error(res.error);
+
+      const rows = (res.data as any[]) ?? [];
       const headers = [
         "order_id",
         "created_at",
@@ -588,15 +673,23 @@ export class OrderAdmin {
         "payment_status",
         "total_amount",
       ];
+
+      const escape = (val: any) => {
+        const s = String(val ?? "");
+        const needQuote = /[",\n]/.test(s);
+        const out = s.replace(/"/g, '""');
+        return needQuote ? `"${out}"` : out;
+        };
+
       const csv =
         [headers.join(",")]
           .concat(
-            rows.map(r =>
+            rows.map((r) =>
               [
                 r.id,
                 r.created_at,
-                JSON.stringify(r.student?.full_name ?? ""),
-                JSON.stringify(r.runner?.full_name ?? ""),
+                escape(r.student?.full_name),
+                escape(r.runner?.full_name),
                 r.status,
                 r.payment_status,
                 r.total_amount ?? 0,
@@ -604,6 +697,7 @@ export class OrderAdmin {
             )
           )
           .join("\n");
+
       return { data: csv, error: null };
     } catch (e) {
       return errOut(e);
@@ -611,11 +705,8 @@ export class OrderAdmin {
   }
 }
 
-// ========== PAYMENT MANAGEMENT ==========
-/**
- * Payments are tracked on the orders table via payment_status.
- * Extend here if you add a dedicated payments table.
- */
+
+/** ───────── PAYMENT MANAGEMENT ───────── */
 export class PaymentAdmin {
   static async list(params?: {
     status?: Database["public"]["Enums"]["payment_status"];
@@ -624,13 +715,16 @@ export class PaymentAdmin {
     offset?: number;
   }) {
     try {
-      let q = supabase.from("orders").select("id,created_at,total_amount,payment_status,payment_reference,student_id", {
-        count: "exact",
-      });
+      let q = supabase
+        .from("orders")
+        .select("id,created_at,total_amount,payment_status,payment_reference,student_id", {
+          count: "exact",
+        });
       if (params?.status) q = q.eq("payment_status", params.status);
       if (params?.range?.from) q = q.gte("created_at", toISO(params.range.from));
       if (params?.range?.to) q = q.lte("created_at", toISO(params.range.to));
-      if (params?.limit != null && params?.offset != null) q = q.range(params.offset, params.offset + params.limit - 1);
+      if (params?.limit != null && params?.offset != null)
+        q = q.range(params.offset, params.offset + params.limit - 1);
       const { data, error, count } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       return { data, count: count ?? data?.length ?? 0, error: null };
@@ -639,7 +733,11 @@ export class PaymentAdmin {
     }
   }
 
-  static async updateStatus(orderId: string, payment_status: Database["public"]["Enums"]["payment_status"], meta?: any) {
+  static async updateStatus(
+    orderId: string,
+    payment_status: Database["public"]["Enums"]["payment_status"],
+    meta?: any
+  ) {
     try {
       const { data, error } = await supabase
         .from("orders")
@@ -670,9 +768,11 @@ export class PaymentAdmin {
       const { data, error } = await q;
       if (error) throw error;
 
-      const paid = (data ?? []).filter(o => (o.payment_status as any) === "paid" || (o.payment_status as any) === "settled");
-      const pending = (data ?? []).filter(o => (o.payment_status as any) === "pending");
-      const failed = (data ?? []).filter(o => (o.payment_status as any) === "failed");
+      const paid = (data ?? []).filter(
+        (o) => (o.payment_status as any) === "paid" || (o.payment_status as any) === "settled"
+      );
+      const pending = (data ?? []).filter((o) => (o.payment_status as any) === "pending");
+      const failed = (data ?? []).filter((o) => (o.payment_status as any) === "failed");
 
       return {
         data: {
@@ -691,20 +791,23 @@ export class PaymentAdmin {
   }
 }
 
-// ========== NOTIFICATIONS ==========
+/** ───────── NOTIFICATIONS ───────── */
 export class NotificationAdmin {
-  static async broadcast(title: string, message: string, forRole?: Database["public"]["Enums"]["user_type"]) {
+  static async broadcast(
+    title: string,
+    message: string,
+    forRole?: Database["public"]["Enums"]["user_type"]
+  ) {
     try {
-      // gather recipients
       let u = supabase.from("users").select("id,is_active,user_type");
       if (forRole) u = u.eq("user_type", forRole);
       const { data: users, error: uErr } = await u;
       if (uErr) throw uErr;
 
-      const activeIds = (users ?? []).filter(x => x.is_active).map(x => x.id);
+      const activeIds = (users ?? []).filter((x) => x.is_active).map((x) => x.id);
       if (!activeIds.length) return { data: { inserted: 0 }, error: null };
 
-      const rows = activeIds.map(uid => ({
+      const rows = activeIds.map((uid) => ({
         user_id: uid,
         title,
         message,
@@ -714,6 +817,12 @@ export class NotificationAdmin {
 
       const { data, error } = await supabase.from("notifications").insert(rows).select();
       if (error) throw error;
+
+      // OPTIONAL: If you have an Edge Function that also does Expo push, invoke it here
+      // await supabase.functions.invoke("send-push-notification", {
+      //   body: { userIds: activeIds, notification: { title, message, type: "general" } },
+      // });
+
       return { data: { inserted: data?.length ?? 0 }, error: null };
     } catch (e) {
       return errOut(e);
@@ -728,6 +837,12 @@ export class NotificationAdmin {
         .select()
         .single();
       if (error) throw error;
+
+      // OPTIONAL: also push
+      // await supabase.functions.invoke("send-push-notification", {
+      //   body: { userIds: [userId], notification: { title, message, type: "general" } },
+      // });
+
       return { data, error: null };
     } catch (e) {
       return errOut(e);
