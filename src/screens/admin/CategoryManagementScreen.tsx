@@ -73,7 +73,7 @@ const useDebounced = (value: string, delay = 300) => {
 const shadowCard = Platform.select({
   ios: {
     shadowColor: "#000",
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 5 },
   },
@@ -397,7 +397,7 @@ const CategoryManagementScreen: React.FC<{ navigation?: any }> = ({
             />
           </View>
 
-          {/* NEW: quick actions */}
+          {/* quick actions btns */}
           <View style={{ alignItems: "center", justifyContent: "center" }}>
             <IconButton
               icon="format-list-bulleted"
@@ -422,7 +422,7 @@ const CategoryManagementScreen: React.FC<{ navigation?: any }> = ({
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={["left","right"]}>
+    <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {loading && items.length === 0 ? (

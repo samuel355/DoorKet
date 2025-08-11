@@ -437,13 +437,13 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   iconContainer: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 20, fontWeight: "800", color: "#0F172A" },
-  subtitle: { fontSize: 13, color: "#64748B", marginTop: 2 },
+  title: { fontSize: 20, fontWeight: "800", color: "#0F172A", marginLeft: 10 },
+  subtitle: { fontSize: 13, color: "#64748B", marginTop: 2, marginLeft: 10 },
 
   addBtn: { borderRadius: 10 },
 
   card: { borderRadius: 16, backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10 },
-  search: { borderRadius: 12, elevation: 0 },
+  search: { borderRadius: 12, elevation: 0, marginTop: 12 },
   divider: { height: 1, backgroundColor: "#EEF2F7", marginVertical: 12 },
 
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

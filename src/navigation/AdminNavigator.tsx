@@ -173,7 +173,7 @@ const CatalogStackNavigator = () => (
       name="CategoryManagement"
       component={CategoryManagementScreen}
       options={{
-        title: "Catalog Management",
+        title: "Catalog",
         headerRight: () => (
           <Ionicons
             name="add-outline"
