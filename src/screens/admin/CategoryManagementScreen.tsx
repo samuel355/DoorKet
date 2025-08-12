@@ -7,6 +7,9 @@ import {
   RefreshControl,
   Pressable,
   Platform,
+  Keyboard,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -422,7 +425,7 @@ const CategoryManagementScreen: React.FC<{ navigation?: any }> = ({
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={["left", 'right']}>
+    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {loading && items.length === 0 ? (
@@ -447,77 +450,97 @@ const CategoryManagementScreen: React.FC<{ navigation?: any }> = ({
         <Modal
           visible={modalOpen}
           onDismiss={() => setModalOpen(false)}
+          dismissable={false}
           contentContainerStyle={[styles.modal, shadowCard]}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 8,
-            }}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
           >
-            <View
-              style={[
-                styles.iconContainer,
-                { backgroundColor: rgba(PRIMARY, 0.12), marginRight: 10 },
-              ]}
+            <TouchableWithoutFeedback
+              onPress={Keyboard.dismiss}
+              accessible={false}
             >
-              <Ionicons name="albums" size={18} color={PRIMARY} />
-            </View>
-            <Text style={styles.modalTitle}>
-              {editing ? "Edit Category" : "New Category"}
-            </Text>
-          </View>
-          <Divider style={styles.divider} />
+              <View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.iconContainer,
+                      { backgroundColor: rgba(PRIMARY, 0.12), marginRight: 10 },
+                    ]}
+                  >
+                    <Ionicons name="albums" size={18} color={PRIMARY} />
+                  </View>
+                  <Text style={styles.modalTitle}>
+                    {editing ? "Edit Category" : "New Category"}
+                  </Text>
+                </View>
+                <Divider style={styles.divider} />
 
-          <TextInput
-            label="Name"
-            value={name}
-            onChangeText={setName}
-            style={{ marginTop: 8 }}
-            mode="outlined"
-          />
-          <TextInput
-            label="Description"
-            value={desc}
-            onChangeText={setDesc}
-            style={{ marginTop: 10 }}
-            mode="outlined"
-            multiline
-          />
+                <TextInput
+                  label="Name"
+                  value={name}
+                  onChangeText={setName}
+                  style={{ marginTop: 8 }}
+                  mode="outlined"
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+                <TextInput
+                  label="Description"
+                  value={desc}
+                  onChangeText={setDesc}
+                  style={{ marginTop: 10 }}
+                  mode="outlined"
+                  multiline
+                  blurOnSubmit
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginTop: 14,
-            }}
-          >
-            <Switch value={active} onValueChange={setActive} />
-            <Text style={{ marginLeft: 10 }}>
-              {active ? "Active" : "Inactive"}
-            </Text>
-          </View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginTop: 14,
+                  }}
+                >
+                  <Switch value={active} onValueChange={setActive} />
+                  <Text style={{ marginLeft: 10 }}>
+                    {active ? "Active" : "Inactive"}
+                  </Text>
+                </View>
 
-          <View style={styles.modalActions}>
-            <Button
-              mode="text"
-              onPress={() => setModalOpen(false)}
-              style={{ marginRight: 8 }}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={saveCategory}
-              loading={saving}
-              disabled={saving}
-              buttonColor={PRIMARY}
-              textColor="#fff"
-            >
-              {editing ? "Save" : "Create"}
-            </Button>
-          </View>
+                <View style={styles.modalActions}>
+                  <Button
+                    mode="text"
+                    onPress={() => setModalOpen(false)}
+                    style={{ marginRight: 8 }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    mode="contained"
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      saveCategory();
+                    }}
+                    loading={saving}
+                    disabled={saving}
+                    buttonColor={PRIMARY}
+                    textColor="#fff"
+                  >
+                    {editing ? "Save" : "Create"}
+                  </Button>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </Modal>
       </Portal>
 
