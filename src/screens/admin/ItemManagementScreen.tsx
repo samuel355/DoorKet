@@ -10,13 +10,13 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Text,
   useTheme,
   Searchbar,
-  Chip,
   Avatar,
   Portal,
   Modal,
@@ -30,6 +30,7 @@ import {
   Menu,
 } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { CategoryAdmin, ItemAdmin } from "@/services/adminService";
 
 type UICategory = { id: string; name: string; is_active: boolean };
@@ -42,6 +43,7 @@ type UIItem = {
   category_id: string;
   category?: { id: string; name: string } | null;
   created_at?: string | null;
+  image_url?: string | null;
 };
 
 type RGB = { r: number; g: number; b: number };
@@ -105,7 +107,7 @@ const ItemManagementScreen: React.FC<{
   const initialCategoryId = route?.params?.categoryId;
   const [categories, setCategories] = useState<UICategory[]>([]);
   const [categoryId, setCategoryId] = useState<string | "all">(
-    initialCategoryId ?? "all"
+    initialCategoryId ?? "all",
   );
 
   const [query, setQuery] = useState("");
@@ -128,6 +130,8 @@ const ItemManagementScreen: React.FC<{
   const [available, setAvailable] = useState(true);
   const [itemCategoryId, setItemCategoryId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [imageUri, setImageUri] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
 
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -135,7 +139,7 @@ const ItemManagementScreen: React.FC<{
     const res = await CategoryAdmin.list({ includeInactive: true });
     if (!res.error) {
       const rows = (res.data as any[] as UICategory[]).sort((a, b) =>
-        a.name.localeCompare(b.name)
+        a.name.localeCompare(b.name),
       );
       setCategories(rows);
       if (initialCategoryId && rows.find((c) => c.id === initialCategoryId)) {
@@ -157,7 +161,7 @@ const ItemManagementScreen: React.FC<{
       rows.sort(
         (a, b) =>
           new Date(b.created_at ?? 0).getTime() -
-          new Date(a.created_at ?? 0).getTime()
+          new Date(a.created_at ?? 0).getTime(),
       );
       setItems(rows);
     } catch (e) {
@@ -191,8 +195,9 @@ const ItemManagementScreen: React.FC<{
     setPrice("");
     setAvailable(true);
     setItemCategoryId(
-      categoryId === "all" ? categories[0]?.id ?? "" : categoryId
+      categoryId === "all" ? (categories[0]?.id ?? "") : categoryId,
     );
+    setImageUri("");
     setModalOpen(true);
   };
 
@@ -203,10 +208,11 @@ const ItemManagementScreen: React.FC<{
     setPrice(
       typeof it.base_price === "number" && !isNaN(it.base_price)
         ? String(it.base_price)
-        : ""
+        : "",
     );
     setAvailable(!!it.is_available);
     setItemCategoryId(it.category_id);
+    setImageUri(it.image_url || "");
     setModalOpen(true);
   };
 
@@ -228,30 +234,62 @@ const ItemManagementScreen: React.FC<{
 
     setSaving(true);
     try {
+      let itemData = {
+        name: trimmed,
+        description: desc || null,
+        base_price: price.length ? num : null,
+        is_available: available,
+        category_id: itemCategoryId,
+      };
+
       if (editing) {
-        const { data, error } = await ItemAdmin.update(editing.id, {
-          name: trimmed,
-          description: desc || null,
-          base_price: price.length ? num : null,
-          is_available: available,
-          category_id: itemCategoryId,
-        } as any);
+        const { data, error } = await ItemAdmin.update(
+          editing.id,
+          itemData as any,
+        );
         if (error) throw new Error(error);
         const updated = data as any as UIItem;
+
+        // Upload image if new image selected
+        if (imageUri && imageUri !== editing.image_url) {
+          setUploading(true);
+          const fileName = `${Date.now()}.jpg`;
+          const uploadResult = await ItemAdmin.uploadItemImage(
+            editing.id,
+            imageUri,
+            fileName,
+          );
+          if (!uploadResult.error) {
+            updated.image_url = uploadResult.data?.publicUrl;
+          }
+          setUploading(false);
+        }
+
         setItems((prev) =>
-          prev.map((x) => (x.id === editing.id ? { ...x, ...updated } : x))
+          prev.map((x) => (x.id === editing.id ? { ...x, ...updated } : x)),
         );
         setSnack({ visible: true, text: "Item updated" });
       } else {
-        const { data, error } = await ItemAdmin.create({
-          name: trimmed,
-          description: desc || null,
-          base_price: price.length ? num : null,
-          is_available: available,
-          category_id: itemCategoryId,
-        } as any);
+        const { data, error } = await ItemAdmin.create(itemData as any);
         if (error) throw new Error(error);
-        setItems((prev) => [data as any as UIItem, ...prev]);
+        const newItem = data as any as UIItem;
+
+        // Upload image if selected
+        if (imageUri) {
+          setUploading(true);
+          const fileName = `${Date.now()}.jpg`;
+          const uploadResult = await ItemAdmin.uploadItemImage(
+            newItem.id,
+            imageUri,
+            fileName,
+          );
+          if (!uploadResult.error) {
+            newItem.image_url = uploadResult.data?.publicUrl;
+          }
+          setUploading(false);
+        }
+
+        setItems((prev) => [newItem, ...prev]);
         setSnack({ visible: true, text: "Item created" });
       }
       setModalOpen(false);
@@ -266,7 +304,7 @@ const ItemManagementScreen: React.FC<{
   const toggleAvailability = async (it: UIItem) => {
     const next = !it.is_available;
     setItems((prev) =>
-      prev.map((x) => (x.id === it.id ? { ...x, is_available: next } : x))
+      prev.map((x) => (x.id === it.id ? { ...x, is_available: next } : x)),
     );
     try {
       const { error } = await ItemAdmin.toggleAvailable(it.id, next);
@@ -275,11 +313,30 @@ const ItemManagementScreen: React.FC<{
         visible: true,
         text: next ? "Item enabled" : "Item disabled",
       });
-    } catch (e) {
+    } catch {
       setItems((prev) =>
-        prev.map((x) => (x.id === it.id ? { ...x, is_available: !next } : x))
+        prev.map((x) => (x.id === it.id ? { ...x, is_available: !next } : x)),
       );
       setSnack({ visible: true, text: "Failed to update status" });
+    }
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      setSnack({ visible: true, text: "Permission required to choose image" });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
     }
   };
 
@@ -295,7 +352,8 @@ const ItemManagementScreen: React.FC<{
           <Text style={styles.catAnchorText}>
             {categoryId === "all"
               ? "All Categories"
-              : categories.find((c) => c.id === categoryId)?.name ?? "Category"}
+              : (categories.find((c) => c.id === categoryId)?.name ??
+                "Category")}
           </Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </Pressable>
@@ -514,6 +572,67 @@ const ItemManagementScreen: React.FC<{
                   keyboardType="decimal-pad"
                 />
 
+                {/* Image picker */}
+                <View style={{ marginTop: 12 }}>
+                  <Text
+                    style={{ fontSize: 12, color: "#64748B", marginBottom: 6 }}
+                  >
+                    Image
+                  </Text>
+                  <Pressable
+                    onPress={pickImage}
+                    style={[
+                      {
+                        height: 120,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: "#E2E8F0",
+                        borderStyle: "dashed",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: "#F8FAFC",
+                        overflow: "hidden",
+                      },
+                      shadowCard,
+                    ]}
+                  >
+                    {imageUri ? (
+                      <Image
+                        source={{ uri: imageUri }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 7,
+                        }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={{ alignItems: "center" }}>
+                        <Ionicons name="camera" size={32} color="#94A3B8" />
+                        <Text
+                          style={{
+                            color: "#64748B",
+                            marginTop: 4,
+                            fontSize: 12,
+                          }}
+                        >
+                          Tap to add image
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                  {imageUri && (
+                    <Button
+                      mode="text"
+                      onPress={() => setImageUri("")}
+                      style={{ marginTop: 4 }}
+                      textColor="#EF4444"
+                    >
+                      Remove Image
+                    </Button>
+                  )}
+                </View>
+
                 {/* Category selector inside modal */}
                 <View style={{ marginTop: 12 }}>
                   <Text
@@ -578,13 +697,16 @@ const ItemManagementScreen: React.FC<{
                   </Button>
                   <Button
                     mode="contained"
-                    onPress={() => {Keyboard.dismiss(); saveItem()}}
-                    loading={saving}
-                    disabled={saving}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      saveItem();
+                    }}
+                    loading={saving || uploading}
+                    disabled={saving || uploading}
                     buttonColor={PRIMARY}
                     textColor="#fff"
                   >
-                    {editing ? "Save" : "Create"}
+                    {uploading ? "Uploading..." : editing ? "Save" : "Create"}
                   </Button>
                 </View>
               </View>
