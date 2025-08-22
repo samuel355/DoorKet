@@ -25,8 +25,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Loading, ErrorState, Input } from "../../components/common";
 import { useCart } from "../../hooks";
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from "../../constants";
-import { SupabaseService } from "@/services/supabase";
 import { Item } from "@/types";
+import { ItemService } from "@/services/itemService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -61,7 +61,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
       setLoading(true);
       setError(null);
 
-      const { data, error } = await SupabaseService.getItemById(itemId);
+      const { data, error } = await ItemService.getItemById(itemId);
 
       if (error) {
         throw new Error(error);

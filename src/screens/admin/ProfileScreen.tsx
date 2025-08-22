@@ -5,6 +5,7 @@ import {
   ScrollView,
   StatusBar,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -22,6 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import supabase, { Database } from "@/services/supabase";
 import { ProfileService } from "@/services/profileService";
+import { useAuth } from "@/store/authStore";
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
 type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
@@ -39,6 +41,7 @@ const shadow = Platform.select({
 const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const theme = useTheme();
   const PRIMARY = theme?.colors?.primary ?? "#FF9800";
+  const { signOut } = useAuth();
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -73,9 +76,8 @@ const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         setUserId(uid);
         setUserEmail(data.user.email ?? "");
 
-        const { data: p, error: pErr } = await ProfileService.getUserProfile(
-          uid
-        );
+        const { data: p, error: pErr } =
+          await ProfileService.getUserProfile(uid);
         if (pErr) throw new Error(pErr);
 
         setProfile(p as UserRow | null);
@@ -111,13 +113,12 @@ const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     try {
       setSaving(true);
       const fileName =
-        `avatar_${userId}_${Date.now()}.` +
-        (uri.split(".").pop() || "jpg");
+        `avatar_${userId}_${Date.now()}.` + (uri.split(".").pop() || "jpg");
 
       const { data, error } = await ProfileService.uploadProfileImage(
         userId,
         uri,
-        fileName
+        fileName,
       );
       if (error) throw new Error(error);
 
@@ -135,10 +136,13 @@ const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       }
 
       // Persist avatar_url in users table
-      const update: UserUpdate = { profile_image_url: url, updated_at: new Date().toISOString() as any };
+      const update: UserUpdate = {
+        profile_image_url: url,
+        updated_at: new Date().toISOString() as any,
+      };
       const { error: uErr } = await ProfileService.updateUserProfile(
         userId,
-        update
+        update,
       );
       if (uErr) throw new Error(uErr);
 
@@ -235,12 +239,29 @@ const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   // ------- logout -------
   const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      // adjust to your actual auth/root navigator
-      navigation?.reset?.({ index: 0, routes: [{ name: "Auth" }] });
-    }
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("Admin signing out...");
+              await signOut();
+              console.log("Admin signed out successfully");
+              // Navigation will be handled automatically by auth state change
+            } catch (error: any) {
+              console.error("Admin sign out error:", error);
+              Alert.alert("Error", "Failed to sign out. Please try again.");
+            }
+          },
+        },
+      ],
+      { cancelable: true },
+    );
   };
 
   if (loading) {

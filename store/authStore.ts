@@ -19,12 +19,19 @@ let notifUnsub: (() => void) | null = null;
 
 async function startNotificationsFor(userId: string) {
   try {
-    await NotificationService.init();                // idempotent
+    await NotificationService.init(); // idempotent
     await NotificationService.registerDevice(userId); // saves Expo push token
-    if (notifUnsub) { try { notifUnsub(); } catch {} }
-    notifUnsub = NotificationService.subscribeToUserNotifications(userId, () => {
-      // Optional: bump a badge or toast in-app
-    });
+    if (notifUnsub) {
+      try {
+        notifUnsub();
+      } catch {}
+    }
+    notifUnsub = NotificationService.subscribeToUserNotifications(
+      userId,
+      () => {
+        // Optional: bump a badge or toast in-app
+      },
+    );
   } catch (e) {
     console.warn("⚠️ startNotificationsFor failed:", e);
   }
@@ -32,7 +39,10 @@ async function startNotificationsFor(userId: string) {
 
 function stopNotifications() {
   try {
-    if (notifUnsub) { notifUnsub(); notifUnsub = null; }
+    if (notifUnsub) {
+      notifUnsub();
+      notifUnsub = null;
+    }
     NotificationService.unsubscribeAll();
   } catch (e) {
     console.warn("⚠️ stopNotifications failed:", e);
@@ -47,7 +57,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
-
+  justLoggedOut: boolean;
   error: string | null;
   lastError: {
     message: string;
@@ -55,18 +65,38 @@ interface AuthState {
     timestamp: number;
   } | null;
 
-  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUpWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  signInWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string; user?: User }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
 
-  sendPhoneOTP: (phone: string) => Promise<{ success: boolean; error?: string }>;
-  verifyPhoneOTP: (otp: string) => Promise<{ success: boolean; error?: string }>;
-  resendPhoneOTP: (phone: string) => Promise<{ success: boolean; error?: string }>;
+  sendPhoneOTP: (
+    phone: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  verifyPhoneOTP: (
+    otp: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  resendPhoneOTP: (
+    phone: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 
-  createProfile: (userData: RegisterData, signUpUser?: User) => Promise<{ success: boolean; error?: string }>;
-  createUserProfile: (userData: RegisterData, signUpUser?: User) => Promise<{ success: boolean; error?: string }>;
-  updateProfile: (updates: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
+  createProfile: (
+    userData: RegisterData,
+    signUpUser?: User,
+  ) => Promise<{ success: boolean; error?: string }>;
+  createUserProfile: (
+    userData: RegisterData,
+    signUpUser?: User,
+  ) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (
+    updates: Partial<AppUser>,
+  ) => Promise<{ success: boolean; error?: string }>;
   refreshProfile: () => Promise<void>;
 
   enableBiometric: () => Promise<BiometricAuthResult>;
@@ -76,16 +106,34 @@ interface AuthState {
 
   clearError: () => void;
   clearLastError: () => void;
+  clearJustLoggedOut: () => void;
   checkAuthStatus: () => Promise<void>;
   reset: () => void;
 }
 
 // ---------- Error typing helper ----------
-const getErrorType = (error: any): "auth" | "network" | "validation" | "system" => {
+const getErrorType = (
+  error: any,
+): "auth" | "network" | "validation" | "system" => {
   const message = error?.message?.toLowerCase() || "";
-  if (message.includes("invalid login") || message.includes("authentication") || message.includes("unauthorized")) return "auth";
-  if (message.includes("network") || message.includes("connection") || message.includes("timeout")) return "network";
-  if (message.includes("validation") || message.includes("required") || message.includes("invalid")) return "validation";
+  if (
+    message.includes("invalid login") ||
+    message.includes("authentication") ||
+    message.includes("unauthorized")
+  )
+    return "auth";
+  if (
+    message.includes("network") ||
+    message.includes("connection") ||
+    message.includes("timeout")
+  )
+    return "network";
+  if (
+    message.includes("validation") ||
+    message.includes("required") ||
+    message.includes("invalid")
+  )
+    return "validation";
   return "system";
 };
 
@@ -100,6 +148,7 @@ export const useAuthStore = create<AuthState>()(
         isLoading: false,
         isAuthenticated: false,
         isInitialized: false,
+        justLoggedOut: false,
         error: null,
         lastError: null,
 
@@ -107,19 +156,28 @@ export const useAuthStore = create<AuthState>()(
         signInWithEmail: async (email, password) => {
           try {
             set({ isLoading: true, error: null });
-            const { data, error } = await AuthService.signInWithEmail(email, password);
+            const { data, error } = await AuthService.signInWithEmail(
+              email,
+              password,
+            );
             if (error) {
               const msg = error || "Sign in failed";
               set({
                 isLoading: false,
                 error: msg,
-                lastError: { message: msg, type: getErrorType({ message: error }), timestamp: Date.now() },
+                lastError: {
+                  message: msg,
+                  type: getErrorType({ message: error }),
+                  timestamp: Date.now(),
+                },
               });
               return { success: false, error: msg };
             }
 
             if (data?.user && data?.session) {
-              const profileResult = await ProfileService.getUserProfile(data.user.id);
+              const profileResult = await ProfileService.getUserProfile(
+                data.user.id,
+              );
 
               // Auto-create basic profile if missing
               if (!profileResult.data && !profileResult.error) {
@@ -127,7 +185,10 @@ export const useAuthStore = create<AuthState>()(
                   id: data.user.id,
                   email: data.user.email || "",
                   phone: `temp_${data.user.id.slice(0, 8)}`,
-                  full_name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "User",
+                  full_name:
+                    data.user.user_metadata?.full_name ||
+                    data.user.email?.split("@")[0] ||
+                    "User",
                   user_type: "admin" as const,
                   university: "KNUST",
                   is_verified: false,
@@ -136,7 +197,8 @@ export const useAuthStore = create<AuthState>()(
                   rating: 0,
                   total_orders: 0,
                 };
-                const createResult = await ProfileService.createUserProfile(basicProfileData);
+                const createResult =
+                  await ProfileService.createUserProfile(basicProfileData);
 
                 if (createResult.error) {
                   set({
@@ -170,7 +232,11 @@ export const useAuthStore = create<AuthState>()(
                 set({
                   isLoading: false,
                   error: `Profile error: ${msg}`,
-                  lastError: { message: msg, type: getErrorType({ message: msg }), timestamp: Date.now() },
+                  lastError: {
+                    message: msg,
+                    type: getErrorType({ message: msg }),
+                    timestamp: Date.now(),
+                  },
                 });
                 return { success: false, error: msg };
               }
@@ -200,7 +266,11 @@ export const useAuthStore = create<AuthState>()(
             set({
               isLoading: false,
               error: msg,
-              lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() },
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
             });
             return { success: false, error: msg };
           }
@@ -210,18 +280,31 @@ export const useAuthStore = create<AuthState>()(
         signUpWithEmail: async (email, password) => {
           try {
             set({ isLoading: true, error: null });
-            const { data, error } = await AuthService.signUpWithEmail(email, password);
+            const { data, error } = await AuthService.signUpWithEmail(
+              email,
+              password,
+            );
             if (error) {
               const msg = error || "Sign up failed";
               set({
                 isLoading: false,
                 error: msg,
-                lastError: { message: msg, type: getErrorType({ message: error }), timestamp: Date.now() },
+                lastError: {
+                  message: msg,
+                  type: getErrorType({ message: error }),
+                  timestamp: Date.now(),
+                },
               });
               return { success: false, error: msg };
             }
             if (data?.user) {
-              set({ user: data.user, session: data.session, isLoading: false, error: null, lastError: null });
+              set({
+                user: data.user,
+                session: data.session,
+                isLoading: false,
+                error: null,
+                lastError: null,
+              });
               return { success: true, user: data.user };
             }
             const msg = "No user data received";
@@ -236,7 +319,11 @@ export const useAuthStore = create<AuthState>()(
             set({
               isLoading: false,
               error: msg,
-              lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() },
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
             });
             return { success: false, error: msg };
           }
@@ -252,21 +339,30 @@ export const useAuthStore = create<AuthState>()(
               set({
                 isLoading: false,
                 error: msg,
-                lastError: { message: msg, type: getErrorType({ message: msg }), timestamp: Date.now() },
+                lastError: {
+                  message: msg,
+                  type: getErrorType({ message: msg }),
+                  timestamp: Date.now(),
+                },
               });
               return { success: false, error: msg };
             }
 
             const { session } = await AuthService.getCurrentSession();
             if (session?.user) {
-              const profileResult = await ProfileService.getUserProfile(session.user.id);
+              const profileResult = await ProfileService.getUserProfile(
+                session.user.id,
+              );
 
               if (!profileResult.data && !profileResult.error) {
                 const basicProfileData = {
                   id: session.user.id,
                   email: session.user.email || "",
                   phone: `temp_${session.user.id.slice(0, 8)}`,
-                  full_name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+                  full_name:
+                    session.user.user_metadata?.full_name ||
+                    session.user.email?.split("@")[0] ||
+                    "User",
                   user_type: "student" as const,
                   university: "KNUST",
                   is_verified: false,
@@ -275,7 +371,8 @@ export const useAuthStore = create<AuthState>()(
                   rating: 0,
                   total_orders: 0,
                 };
-                const createResult = await ProfileService.createUserProfile(basicProfileData);
+                const createResult =
+                  await ProfileService.createUserProfile(basicProfileData);
 
                 if (createResult.error) {
                   set({
@@ -309,7 +406,11 @@ export const useAuthStore = create<AuthState>()(
                 set({
                   isLoading: false,
                   error: `Profile error: ${msg}`,
-                  lastError: { message: msg, type: getErrorType({ message: msg }), timestamp: Date.now() },
+                  lastError: {
+                    message: msg,
+                    type: getErrorType({ message: msg }),
+                    timestamp: Date.now(),
+                  },
                 });
                 return { success: false, error: msg };
               }
@@ -339,7 +440,11 @@ export const useAuthStore = create<AuthState>()(
             set({
               isLoading: false,
               error: msg,
-              lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() },
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
             });
             return { success: false, error: msg };
           }
@@ -358,6 +463,7 @@ export const useAuthStore = create<AuthState>()(
               session: null,
               isAuthenticated: false,
               isLoading: false,
+              justLoggedOut: true,
               error: null,
               lastError: null,
             });
@@ -370,6 +476,7 @@ export const useAuthStore = create<AuthState>()(
               session: null,
               isAuthenticated: false,
               isLoading: false,
+              justLoggedOut: true,
               error: null,
               lastError: null,
             });
@@ -378,28 +485,61 @@ export const useAuthStore = create<AuthState>()(
 
         // -------- Phone OTP (stubs) --------
         sendPhoneOTP: async (phone: string) => {
-          try { set({ isLoading: true, error: null }); set({ isLoading: false }); return { success: true }; }
-          catch (err: any) {
+          try {
+            set({ isLoading: true, error: null });
+            set({ isLoading: false });
+            return { success: true };
+          } catch (err: any) {
             const msg = err.message || "Failed to send OTP";
-            set({ isLoading: false, error: msg, lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() } });
+            set({
+              isLoading: false,
+              error: msg,
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
+            });
             return { success: false, error: msg };
           }
         },
 
         verifyPhoneOTP: async (otp: string) => {
-          try { set({ isLoading: true, error: null }); set({ isLoading: false }); return { success: true }; }
-          catch (err: any) {
+          try {
+            set({ isLoading: true, error: null });
+            set({ isLoading: false });
+            return { success: true };
+          } catch (err: any) {
             const msg = err.message || "Failed to verify OTP";
-            set({ isLoading: false, error: msg, lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() } });
+            set({
+              isLoading: false,
+              error: msg,
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
+            });
             return { success: false, error: msg };
           }
         },
 
         resendPhoneOTP: async (phone: string) => {
-          try { set({ isLoading: true, error: null }); set({ isLoading: false }); return { success: true }; }
-          catch (err: any) {
+          try {
+            set({ isLoading: true, error: null });
+            set({ isLoading: false });
+            return { success: true };
+          } catch (err: any) {
             const msg = err.message || "Failed to resend OTP";
-            set({ isLoading: false, error: msg, lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() } });
+            set({
+              isLoading: false,
+              error: msg,
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
+            });
             return { success: false, error: msg };
           }
         },
@@ -427,7 +567,8 @@ export const useAuthStore = create<AuthState>()(
               total_orders: 0,
             };
 
-            const { data: profile, error: profileError } = await ProfileService.createUserProfile(profileData);
+            const { data: profile, error: profileError } =
+              await ProfileService.createUserProfile(profileData);
             if (profileError) throw new Error(profileError);
 
             set({ profile, isLoading: false, error: null, lastError: null });
@@ -436,7 +577,15 @@ export const useAuthStore = create<AuthState>()(
             return { success: true };
           } catch (err: any) {
             const msg = err.message || "Failed to create profile";
-            set({ isLoading: false, error: msg, lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() } });
+            set({
+              isLoading: false,
+              error: msg,
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
+            });
             return { success: false, error: msg };
           }
         },
@@ -455,11 +604,24 @@ export const useAuthStore = create<AuthState>()(
               await ProfileService.updateUserProfile(currentUser.id, updates);
             if (updateError) throw new Error(updateError);
 
-            set({ profile: updatedProfile, isLoading: false, error: null, lastError: null });
+            set({
+              profile: updatedProfile,
+              isLoading: false,
+              error: null,
+              lastError: null,
+            });
             return { success: true };
           } catch (err: any) {
             const msg = err.message || "Failed to update profile";
-            set({ isLoading: false, error: msg, lastError: { message: msg, type: getErrorType(err), timestamp: Date.now() } });
+            set({
+              isLoading: false,
+              error: msg,
+              lastError: {
+                message: msg,
+                type: getErrorType(err),
+                timestamp: Date.now(),
+              },
+            });
             return { success: false, error: msg };
           }
         },
@@ -469,9 +631,17 @@ export const useAuthStore = create<AuthState>()(
             const currentUser = get().user;
             if (!currentUser) return;
 
-            const profileResult = await ProfileService.getUserProfile(currentUser.id);
-            if (!profileResult.data && !profileResult.error) { set({ profile: null }); return; }
-            if (profileResult.error) { console.error("Profile refresh error:", profileResult.error); return; }
+            const profileResult = await ProfileService.getUserProfile(
+              currentUser.id,
+            );
+            if (!profileResult.data && !profileResult.error) {
+              set({ profile: null });
+              return;
+            }
+            if (profileResult.error) {
+              console.error("Profile refresh error:", profileResult.error);
+              return;
+            }
 
             set({ profile: profileResult.data });
           } catch (err) {
@@ -483,35 +653,55 @@ export const useAuthStore = create<AuthState>()(
         enableBiometric: async () => {
           try {
             const currentUser = get().user;
-            if (!currentUser) return { success: false, error: "No authenticated user found" };
-            const result = await BiometricService.enableBiometric(currentUser.id);
+            if (!currentUser)
+              return { success: false, error: "No authenticated user found" };
+            const result = await BiometricService.enableBiometric(
+              currentUser.id,
+            );
             if (result.success && get().profile) {
               const currentProfile = get().profile!;
               set({ profile: { ...currentProfile, face_id_enabled: true } });
             }
             return result;
           } catch (err: any) {
-            return { success: false, error: err.message || "Failed to enable biometric" };
+            return {
+              success: false,
+              error: err.message || "Failed to enable biometric",
+            };
           }
         },
 
         authenticateWithBiometric: async () => {
-          try { return await BiometricService.authenticate("Authenticate to continue"); }
-          catch (err: any) { return { success: false, error: err.message || "Biometric authentication failed" }; }
+          try {
+            return await BiometricService.authenticate(
+              "Authenticate to continue",
+            );
+          } catch (err: any) {
+            return {
+              success: false,
+              error: err.message || "Biometric authentication failed",
+            };
+          }
         },
 
         disableBiometric: async () => {
           try {
             const currentUser = get().user;
-            if (!currentUser) return { success: false, error: "No authenticated user found" };
-            const result = await BiometricService.disableBiometric(currentUser.id);
+            if (!currentUser)
+              return { success: false, error: "No authenticated user found" };
+            const result = await BiometricService.disableBiometric(
+              currentUser.id,
+            );
             if (result.success && get().profile) {
               const currentProfile = get().profile!;
               set({ profile: { ...currentProfile, face_id_enabled: false } });
             }
             return result;
           } catch (err: any) {
-            return { success: false, error: err.message || "Failed to disable biometric" };
+            return {
+              success: false,
+              error: err.message || "Failed to disable biometric",
+            };
           }
         },
 
@@ -528,6 +718,7 @@ export const useAuthStore = create<AuthState>()(
         // -------- Utils --------
         clearError: () => set({ error: null }),
         clearLastError: () => set({ lastError: null }),
+        clearJustLoggedOut: () => set({ justLoggedOut: false }),
 
         checkAuthStatus: async () => {
           try {
@@ -535,14 +726,19 @@ export const useAuthStore = create<AuthState>()(
             const { session } = await AuthService.getCurrentSession();
 
             if (session?.user) {
-              const profileResult = await ProfileService.getUserProfile(session.user.id);
+              const profileResult = await ProfileService.getUserProfile(
+                session.user.id,
+              );
 
               if (!profileResult.data && !profileResult.error) {
                 const basicProfileData = {
                   id: session.user.id,
                   email: session.user.email || "",
                   phone: `temp_${session.user.id.slice(0, 8)}`,
-                  full_name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+                  full_name:
+                    session.user.user_metadata?.full_name ||
+                    session.user.email?.split("@")[0] ||
+                    "User",
                   user_type: "student" as const,
                   university: "KNUST",
                   is_verified: false,
@@ -551,7 +747,8 @@ export const useAuthStore = create<AuthState>()(
                   rating: 0,
                   total_orders: 0,
                 };
-                const createResult = await ProfileService.createUserProfile(basicProfileData);
+                const createResult =
+                  await ProfileService.createUserProfile(basicProfileData);
 
                 if (createResult.error) {
                   set({
@@ -626,6 +823,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             isAuthenticated: false,
             isInitialized: false,
+            justLoggedOut: false,
             error: null,
             lastError: null,
           });
@@ -653,7 +851,8 @@ const DISABLE_AUTH_LISTENER = __DEV__ && false;
 
 if (!DISABLE_AUTH_LISTENER) {
   supabase.auth.onAuthStateChange(async (event, session) => {
-    const { checkAuthStatus, isAuthenticated, isLoading } = useAuthStore.getState();
+    const { checkAuthStatus, isAuthenticated, isLoading } =
+      useAuthStore.getState();
     console.log("🔄 Auth state changed:", event, !!session);
 
     if (isLoading) return;
@@ -665,7 +864,11 @@ if (!DISABLE_AUTH_LISTENER) {
     } else if (event === "SIGNED_OUT") {
       stopNotifications();
       await checkAuthStatus();
-    } else if (event === "TOKEN_REFRESHED" && session?.user && isAuthenticated) {
+    } else if (
+      event === "TOKEN_REFRESHED" &&
+      session?.user &&
+      isAuthenticated
+    ) {
       // Token may rotate → re-register device
       await startNotificationsFor(session.user.id);
       await checkAuthStatus();

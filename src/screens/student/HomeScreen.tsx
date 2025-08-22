@@ -6,15 +6,15 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Dimensions,
-    Easing,
-    RefreshControl,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Easing,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Searchbar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -106,13 +106,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       if (error) {
         console.error("Error loading categories:", {
           message: error,
-          details: error
+          details: error,
         });
         // Optionally show user-friendly error message
         // Alert.alert("Error", "Unable to load categories. Please try again.");
         return;
       }
-      
+
       if (!data) {
         console.warn("No categories data received");
         setCategories([]);
@@ -123,7 +123,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     } catch (error) {
       console.error("Unexpected error loading categories:", {
         message: error instanceof Error ? error.message : "Unknown error",
-        error
+        error,
       });
       // Optionally show user-friendly error message
       // Alert.alert("Error", "Something went wrong. Please try again.");
@@ -345,7 +345,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate("Cart")}
+          onPress={() => navigation.navigate("CartTab")}
         >
           <LinearGradient
             colors={[ColorPalette.primary[100], ColorPalette.primary[50]]}
@@ -362,7 +362,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate("OrderHistory")}
+          onPress={() => navigation.navigate("OrdersTab")}
         >
           <LinearGradient
             colors={[ColorPalette.success[100], ColorPalette.success[50]]}
@@ -392,7 +392,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate("Profile")}
+          onPress={() => navigation.navigate("ProfileTab")}
         >
           <LinearGradient
             colors={[ColorPalette.secondary[100], ColorPalette.secondary[50]]}
@@ -693,6 +693,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
+    marginTop: 12
   },
   quickActions: {
     flexDirection: "row",

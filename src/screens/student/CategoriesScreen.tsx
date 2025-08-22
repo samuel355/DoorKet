@@ -18,9 +18,9 @@ import { StackNavigationProp } from "@react-navigation/stack";
 
 import { Loading } from "../../components/common";
 import { Category, StudentStackParamList } from "@/types";
-import { ItemService } from "@/services/supabase";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
+import { ItemService } from "@/services/itemService";
 
 type CategoriesScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -497,7 +497,8 @@ const styles = StyleSheet.create({
   // Content styles
   scrollView: {
     flex: 1,
-    marginTop: -spacing.xl,
+    paddingTop: 10,
+    marginBottom: 45
   },
   scrollContent: {
     paddingBottom: spacing.xxxxl,

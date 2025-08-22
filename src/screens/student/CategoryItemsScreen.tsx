@@ -20,9 +20,9 @@ import { RouteProp } from "@react-navigation/native";
 
 import { Loading, EmptyState } from "../../components/common";
 import { Item, StudentStackParamList } from "@/types";
-import { ItemService } from "@/services/supabase";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
+import { ItemService } from "@/services/itemService";
 
 type CategoryItemsScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     width: ITEM_WIDTH,
     marginBottom: spacing.lg,
   },
-  itemCard: {},
+  itemCard: { marginTop: spacing.lg },
   itemGradient: {
     borderRadius: borderRadius.lg,
     elevation: 4,

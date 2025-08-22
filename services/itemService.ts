@@ -23,8 +23,6 @@ export class ItemService {
         console.error("Supabase error:", error);
         throw error;
       }
-
-      console.log("Categories fetched successfully:");
       return { data, error: null };
     } catch (error: any) {
       console.error("Failed to fetch categories:", error.message);
@@ -58,6 +56,7 @@ export class ItemService {
         .order("name", { ascending: true });
 
       if (error) throw error;
+      console.log("Fetched items by category:", data);
       return { data, error: null };
     } catch (error: any) {
       console.error("Get items by category error:", error);

@@ -1,6 +1,7 @@
 import { AuthStackParamList } from "@/types";
 import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
+import { useAuth } from "@/store/authStore";
 import BiometricSetupScreen from "../screens/auth/BiometricSetupScreen";
 import EmailVerificationScreen from "../screens/auth/EmailVerificationScreen";
 import GoogleLoginScreen from "../screens/auth/GoogleLoginScreen";
@@ -14,9 +15,20 @@ import SplashScreen from "../screens/splash/SplashScreen";
 const Stack = createStackNavigator<AuthStackParamList>();
 
 const AuthNavigator: React.FC = () => {
+  const { justLoggedOut, clearJustLoggedOut } = useAuth();
+
+  // If user just logged out, clear the flag and start with Welcome screen
+  const initialRouteName = justLoggedOut ? "Welcome" : "Splash";
+
+  React.useEffect(() => {
+    if (justLoggedOut) {
+      clearJustLoggedOut();
+    }
+  }, [justLoggedOut, clearJustLoggedOut]);
+
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: "#ffffff" },
