@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Image,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -32,6 +33,65 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { CategoryAdmin, ItemAdmin } from "@/services/adminService";
+
+const TestStorageButton = ({ PRIMARY }: { PRIMARY: string }) => {
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string>("");
+
+  const testStorage = async () => {
+    setTesting(true);
+    setTestResult("Testing storage...");
+
+    try {
+      console.log("🧪 Testing storage setup...");
+      const bucketCheck = await ItemAdmin.ensureStorageBucket();
+
+      if (!bucketCheck.exists) {
+        setTestResult(`❌ Storage test failed: ${bucketCheck.error}`);
+        return;
+      }
+
+      if (bucketCheck.created) {
+        setTestResult("✅ Storage bucket created and ready!");
+      } else {
+        setTestResult("✅ Storage bucket exists and accessible!");
+      }
+    } catch (error: any) {
+      setTestResult(`❌ Storage test error: ${error.message}`);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <View style={{ marginTop: 8, alignItems: "center" }}>
+      <Button
+        mode="outlined"
+        onPress={testStorage}
+        loading={testing}
+        disabled={testing}
+        icon="test-tube"
+        buttonColor="transparent"
+        textColor={PRIMARY}
+        style={{ borderColor: PRIMARY }}
+      >
+        Test Storage
+      </Button>
+      {testResult && (
+        <Text
+          style={{
+            marginTop: 4,
+            fontSize: 12,
+            color: testResult.includes("❌") ? "#EF4444" : "#10B981",
+            textAlign: "center",
+          }}
+        >
+          {testResult}
+        </Text>
+      )}
+    </View>
+  );
+};
 
 type UICategory = { id: string; name: string; is_active: boolean };
 type UIItem = {
@@ -253,16 +313,59 @@ const ItemManagementScreen: React.FC<{
         // Upload image if new image selected
         if (imageUri && imageUri !== editing.image_url) {
           setUploading(true);
-          const fileName = `${Date.now()}.jpg`;
-          const uploadResult = await ItemAdmin.uploadItemImage(
-            editing.id,
-            imageUri,
-            fileName,
-          );
-          if (!uploadResult.error) {
-            updated.image_url = uploadResult.data?.publicUrl;
+          try {
+            // Detect file extension from URI or default to jpg
+            const uriParts = imageUri.split(".");
+            const extension =
+              uriParts.length > 1 ? uriParts.pop()?.toLowerCase() : "jpg";
+            const validExtensions = ["jpg", "jpeg", "png", "webp"];
+            const fileExt = validExtensions.includes(extension || "")
+              ? extension
+              : "jpg";
+            const fileName = `${Date.now()}.${fileExt}`;
+
+            console.log(
+              "📸 Uploading image for editing item:",
+              editing.id,
+              fileName,
+              "URI:",
+              imageUri.substring(0, 50) + "...",
+            );
+
+            const uploadResult = await ItemAdmin.uploadItemImage(
+              editing.id,
+              imageUri,
+              fileName,
+            );
+
+            if (uploadResult.error) {
+              console.error("📸 Image upload failed:", uploadResult.error);
+              setSnack({
+                visible: true,
+                text: `Image upload failed: ${uploadResult.error}`,
+              });
+            } else if (uploadResult.data?.publicUrl) {
+              updated.image_url = uploadResult.data.publicUrl;
+              console.log(
+                "📸 Image uploaded successfully:",
+                uploadResult.data.publicUrl,
+              );
+            } else {
+              console.error("📸 No public URL returned from upload");
+              setSnack({
+                visible: true,
+                text: "Image upload completed but no URL returned",
+              });
+            }
+          } catch (error: any) {
+            console.error("📸 Image upload error:", error);
+            setSnack({
+              visible: true,
+              text: `Image upload error: ${error.message}`,
+            });
+          } finally {
+            setUploading(false);
           }
-          setUploading(false);
         }
 
         setItems((prev) =>
@@ -277,16 +380,59 @@ const ItemManagementScreen: React.FC<{
         // Upload image if selected
         if (imageUri) {
           setUploading(true);
-          const fileName = `${Date.now()}.jpg`;
-          const uploadResult = await ItemAdmin.uploadItemImage(
-            newItem.id,
-            imageUri,
-            fileName,
-          );
-          if (!uploadResult.error) {
-            newItem.image_url = uploadResult.data?.publicUrl;
+          try {
+            // Detect file extension from URI or default to jpg
+            const uriParts = imageUri.split(".");
+            const extension =
+              uriParts.length > 1 ? uriParts.pop()?.toLowerCase() : "jpg";
+            const validExtensions = ["jpg", "jpeg", "png", "webp"];
+            const fileExt = validExtensions.includes(extension || "")
+              ? extension
+              : "jpg";
+            const fileName = `${Date.now()}.${fileExt}`;
+
+            console.log(
+              "📸 Uploading image for new item:",
+              newItem.id,
+              fileName,
+              "URI:",
+              imageUri.substring(0, 50) + "...",
+            );
+
+            const uploadResult = await ItemAdmin.uploadItemImage(
+              newItem.id,
+              imageUri,
+              fileName,
+            );
+
+            if (uploadResult.error) {
+              console.error("📸 Image upload failed:", uploadResult.error);
+              setSnack({
+                visible: true,
+                text: `Image upload failed: ${uploadResult.error}`,
+              });
+            } else if (uploadResult.data?.publicUrl) {
+              newItem.image_url = uploadResult.data.publicUrl;
+              console.log(
+                "📸 Image uploaded successfully:",
+                uploadResult.data.publicUrl,
+              );
+            } else {
+              console.error("📸 No public URL returned from upload");
+              setSnack({
+                visible: true,
+                text: "Image upload completed but no URL returned",
+              });
+            }
+          } catch (error: any) {
+            console.error("📸 Image upload error:", error);
+            setSnack({
+              visible: true,
+              text: `Image upload error: ${error.message}`,
+            });
+          } finally {
+            setUploading(false);
           }
-          setUploading(false);
         }
 
         setItems((prev) => [newItem, ...prev]);
@@ -333,10 +479,58 @@ const ItemManagementScreen: React.FC<{
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      selectionLimit: 1,
     });
 
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      console.log("📸 Image selected:", {
+        uri: asset.uri,
+        type: asset.type,
+        size: asset.fileSize,
+        width: asset.width,
+        height: asset.height,
+        mimeType: asset.mimeType,
+      });
+
+      // Test if we can read the file immediately
+      try {
+        const testResponse = await fetch(asset.uri);
+        const testSize = (await testResponse.arrayBuffer()).byteLength;
+        console.log("📸 File readable test - Size:", testSize, "bytes");
+
+        if (testSize === 0) {
+          setSnack({
+            visible: true,
+            text: "Selected image appears to be empty. Try selecting a different image.",
+          });
+          return;
+        }
+      } catch (testError: any) {
+        console.error("📸 File read test failed:", testError);
+        setSnack({
+          visible: true,
+          text: "Cannot read selected image. Try selecting a different image.",
+        });
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
+        setSnack({
+          visible: true,
+          text: "Image too large. Please select an image smaller than 10MB.",
+        });
+        return;
+      }
+
+      setImageUri(asset.uri);
+      setSnack({
+        visible: true,
+        text: "Image selected successfully!",
+      });
+    } else {
+      console.log("📸 Image selection cancelled or no assets");
     }
   };
 
@@ -396,16 +590,19 @@ const ItemManagementScreen: React.FC<{
           <Text style={styles.title}>Item Management</Text>
           <Text style={styles.subtitle}>Add and manage items by category</Text>
         </View>
-        <Button
-          mode="contained"
-          onPress={openCreate}
-          style={styles.addBtn}
-          buttonColor={PRIMARY}
-          textColor="#fff"
-          icon="plus"
-        >
-          New
-        </Button>
+        <View style={{ flexDirection: "column" }}>
+          <Button
+            mode="contained"
+            onPress={openCreate}
+            style={styles.addBtn}
+            buttonColor={PRIMARY}
+            textColor="#fff"
+            icon="plus"
+          >
+            New
+          </Button>
+          <TestStorageButton PRIMARY={PRIMARY} />
+        </View>
       </View>
 
       <View style={[styles.card, shadowCard]}>
@@ -715,13 +912,27 @@ const ItemManagementScreen: React.FC<{
         </Modal>
       </Portal>
 
-      <Snackbar
-        visible={snack.visible}
-        onDismiss={() => setSnack({ visible: false, text: "" })}
-        duration={2200}
-      >
-        {snack.text}
-      </Snackbar>
+      <Portal>
+        <Snackbar
+          visible={snack.visible}
+          onDismiss={() => setSnack({ visible: false, text: "" })}
+          duration={4000}
+          style={{
+            zIndex: 9999,
+            elevation: 8,
+            position: "absolute",
+            bottom: 50,
+            left: 16,
+            right: 16,
+          }}
+          wrapperStyle={{
+            zIndex: 9999,
+            elevation: 8,
+          }}
+        >
+          {snack.text}
+        </Snackbar>
+      </Portal>
     </SafeAreaView>
   );
 };
