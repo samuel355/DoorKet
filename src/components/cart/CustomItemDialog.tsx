@@ -8,14 +8,11 @@ import {
   Platform,
   ScrollView,
   Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Dimensions,
 } from "react-native";
-import {
-  Text,
-  TextInput,
-  Button,
-  Surface,
-  IconButton,
-} from "react-native-paper";
+import { Text, TextInput, Button, Divider } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -32,6 +29,8 @@ interface CustomItemDialogProps {
   prefilledBudget?: number;
   prefilledNotes?: string;
 }
+
+const { height, width } = Dimensions.get("window");
 
 const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
   visible,
@@ -98,35 +97,37 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
       const success = await addCustomItem(
         itemName.trim(),
         budgetValue,
-        notes.trim()
+        notes.trim(),
       );
 
       if (success) {
-        Alert.alert(
-          "Success!",
-          `"${itemName}" has been added to your cart`,
-          [{ text: "OK" }]
-        );
+        Alert.alert("Success!", `"${itemName}" has been added to your cart`, [
+          { text: "OK" },
+        ]);
         onSuccess?.();
         onDismiss();
       } else {
-        Alert.alert(
-          "Error",
-          "Failed to add item to cart. Please try again.",
-          [{ text: "OK" }]
-        );
+        Alert.alert("Error", "Failed to add item to cart. Please try again.", [
+          { text: "OK" },
+        ]);
       }
     } catch (error) {
       console.error("Error adding custom item:", error);
-      Alert.alert(
-        "Error",
-        "An unexpected error occurred. Please try again.",
-        [{ text: "OK" }]
-      );
+      Alert.alert("Error", "An unexpected error occurred. Please try again.", [
+        { text: "OK" },
+      ]);
     } finally {
       setIsLoading(false);
     }
-  }, [itemName, budget, notes, addCustomItem, onSuccess, onDismiss, validateForm]);
+  }, [
+    itemName,
+    budget,
+    notes,
+    addCustomItem,
+    onSuccess,
+    onDismiss,
+    validateForm,
+  ]);
 
   const handleClose = useCallback(() => {
     if (isLoading) return;
@@ -142,173 +143,204 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={handleClose}
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <Surface style={styles.dialog} elevation={8}>
-              {/* Header */}
-              <View style={styles.header}>
-                <LinearGradient
-                  colors={[ColorPalette.primary[600], ColorPalette.primary[700]]}
-                  style={styles.headerGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.headerContent}>
-                    <View style={styles.titleContainer}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modal}>
+                {/* Header */}
+                <View style={styles.headerContainer}>
+                  <View style={styles.titleRow}>
+                    <View style={styles.iconContainer}>
                       <Ionicons
                         name="create-outline"
-                        size={24}
-                        color={ColorPalette.pure.white}
+                        size={20}
+                        color={ColorPalette.primary[600]}
                       />
-                      <Text style={styles.headerTitle}>Add Custom Item</Text>
                     </View>
-                    <IconButton
-                      icon="close"
-                      size={24}
-                      iconColor={ColorPalette.pure.white}
-                      onPress={handleClose}
-                      disabled={isLoading}
-                    />
+                    <Text style={styles.modalTitle}>Add Custom Item</Text>
                   </View>
-                </LinearGradient>
-              </View>
-
-              {/* Form */}
-              <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
-                {/* Item Name */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.fieldLabel}>Item Name *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={itemName}
-                    onChangeText={setItemName}
-                    placeholder="e.g., Notebook, Snacks, etc."
-                    mode="outlined"
-                    error={!!errors.name}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleClose}
                     disabled={isLoading}
-                    maxLength={100}
-                    outlineColor={ColorPalette.neutral[300]}
-                    activeOutlineColor={ColorPalette.primary[600]}
-                  />
-                  {errors.name && (
-                    <Text style={styles.errorText}>{errors.name}</Text>
-                  )}
-                </View>
-
-                {/* Budget */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.fieldLabel}>Budget *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={budget}
-                    onChangeText={setBudget}
-                    placeholder="0.00"
-                    mode="outlined"
-                    error={!!errors.budget}
-                    disabled={isLoading}
-                    keyboardType="decimal-pad"
-                    left={<TextInput.Affix text="GH₵" />}
-                    outlineColor={ColorPalette.neutral[300]}
-                    activeOutlineColor={ColorPalette.primary[600]}
-                  />
-                  {errors.budget && (
-                    <Text style={styles.errorText}>{errors.budget}</Text>
-                  )}
-                  {budgetValue > 0 && (
-                    <Text style={styles.budgetPreview}>
-                      Total: {formatCurrency(budgetValue)}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Notes */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.fieldLabel}>Notes (Optional)</Text>
-                  <TextInput
-                    style={[styles.textInput, styles.notesInput]}
-                    value={notes}
-                    onChangeText={setNotes}
-                    placeholder="Any specific requirements or details..."
-                    mode="outlined"
-                    disabled={isLoading}
-                    multiline
-                    numberOfLines={3}
-                    maxLength={300}
-                    outlineColor={ColorPalette.neutral[300]}
-                    activeOutlineColor={ColorPalette.primary[600]}
-                  />
-                  <Text style={styles.characterCount}>
-                    {notes.length}/300 characters
-                  </Text>
-                </View>
-
-                {/* Info Box */}
-                <View style={styles.infoBox}>
-                  <Ionicons
-                    name="information-circle-outline"
-                    size={16}
-                    color={ColorPalette.primary[600]}
-                  />
-                  <Text style={styles.infoText}>
-                    Custom items allow you to request items that aren't in our catalog.
-                    Your runner will purchase the item within your specified budget.
-                  </Text>
-                </View>
-              </ScrollView>
-
-              {/* Actions */}
-              <View style={styles.actions}>
-                <Button
-                  mode="outlined"
-                  onPress={handleClose}
-                  disabled={isLoading}
-                  style={styles.cancelButton}
-                  labelStyle={styles.cancelButtonText}
-                >
-                  Cancel
-                </Button>
-
-                <TouchableOpacity
-                  style={[
-                    styles.addButton,
-                    (!itemName.trim() || !budget.trim() || isLoading) &&
-                      styles.addButtonDisabled,
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={!itemName.trim() || !budget.trim() || isLoading}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={
-                      !itemName.trim() || !budget.trim() || isLoading
-                        ? [ColorPalette.neutral[300], ColorPalette.neutral[400]]
-                        : [ColorPalette.primary[600], ColorPalette.primary[700]]
-                    }
-                    style={styles.addButtonGradient}
                   >
                     <Ionicons
-                      name={isLoading ? "hourglass-outline" : "basket-outline"}
-                      size={18}
-                      color={ColorPalette.pure.white}
+                      name="close"
+                      size={20}
+                      color={ColorPalette.neutral[600]}
                     />
-                    <Text style={styles.addButtonText}>
-                      {isLoading ? "Adding..." : "Add to Cart"}
+                  </TouchableOpacity>
+                </View>
+
+                <Divider style={styles.divider} />
+
+                {/* Form Content */}
+                <ScrollView
+                  style={styles.formContainer}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {/* Item Name */}
+                  <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Item Name *</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={itemName}
+                      onChangeText={setItemName}
+                      placeholder="e.g., Notebook, Snacks, etc."
+                      mode="outlined"
+                      error={!!errors.name}
+                      disabled={isLoading}
+                      maxLength={100}
+                      outlineColor={ColorPalette.neutral[300]}
+                      activeOutlineColor={ColorPalette.primary[600]}
+                      theme={{
+                        colors: {
+                          primary: ColorPalette.primary[600],
+                          background: ColorPalette.pure.white,
+                        },
+                      }}
+                    />
+                    {errors.name && (
+                      <Text style={styles.errorText}>{errors.name}</Text>
+                    )}
+                  </View>
+
+                  {/* Budget */}
+                  <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Budget *</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={budget}
+                      onChangeText={setBudget}
+                      placeholder="0.00"
+                      mode="outlined"
+                      error={!!errors.budget}
+                      disabled={isLoading}
+                      keyboardType="decimal-pad"
+                      left={<TextInput.Affix text="GH₵" />}
+                      outlineColor={ColorPalette.neutral[300]}
+                      activeOutlineColor={ColorPalette.primary[600]}
+                      theme={{
+                        colors: {
+                          primary: ColorPalette.primary[600],
+                          background: ColorPalette.pure.white,
+                        },
+                      }}
+                    />
+                    {errors.budget && (
+                      <Text style={styles.errorText}>{errors.budget}</Text>
+                    )}
+                    {budgetValue > 0 && (
+                      <Text style={styles.budgetPreview}>
+                        Total: {formatCurrency(budgetValue)}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Notes */}
+                  <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Notes (Optional)</Text>
+                    <TextInput
+                      style={[styles.textInput, styles.notesInput]}
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder="Any specific requirements or details..."
+                      mode="outlined"
+                      disabled={isLoading}
+                      multiline
+                      numberOfLines={3}
+                      maxLength={300}
+                      outlineColor={ColorPalette.neutral[300]}
+                      activeOutlineColor={ColorPalette.primary[600]}
+                      theme={{
+                        colors: {
+                          primary: ColorPalette.primary[600],
+                          background: ColorPalette.pure.white,
+                        },
+                      }}
+                    />
+                    <Text style={styles.characterCount}>
+                      {notes.length}/300 characters
                     </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                  </View>
+
+                  {/* Info Box */}
+                  <View style={styles.infoBox}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={ColorPalette.primary[600]}
+                    />
+                    <Text style={styles.infoText}>
+                      Custom items allow you to request items that aren't in our
+                      catalog. Your runner will purchase the item within your
+                      specified budget.
+                    </Text>
+                  </View>
+                </ScrollView>
+
+                {/* Actions */}
+                <View style={styles.actions}>
+                  <Button
+                    mode="outlined"
+                    onPress={handleClose}
+                    disabled={isLoading}
+                    style={styles.cancelButton}
+                    labelStyle={styles.cancelButtonText}
+                    buttonColor="transparent"
+                    textColor={ColorPalette.neutral[600]}
+                  >
+                    Cancel
+                  </Button>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      (!itemName.trim() || !budget.trim() || isLoading) &&
+                        styles.addButtonDisabled,
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={!itemName.trim() || !budget.trim() || isLoading}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={
+                        !itemName.trim() || !budget.trim() || isLoading
+                          ? [
+                              ColorPalette.neutral[300],
+                              ColorPalette.neutral[400],
+                            ]
+                          : [
+                              ColorPalette.primary[600],
+                              ColorPalette.primary[700],
+                            ]
+                      }
+                      style={styles.addButtonGradient}
+                    >
+                      <Ionicons
+                        name={
+                          isLoading ? "hourglass-outline" : "basket-outline"
+                        }
+                        size={18}
+                        color={ColorPalette.pure.white}
+                      />
+                      <Text style={styles.addButtonText}>
+                        {isLoading ? "Adding..." : "Add to Cart"}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </Surface>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -320,47 +352,75 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  backdrop: {
+  container: {
     flex: 1,
-    width: "100%",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
   },
-  dialog: {
-    width: "100%",
+  modalContainer: {
+    width: width - spacing.lg * 2,
     maxWidth: 400,
-    maxHeight: "80%",
-    borderRadius: borderRadius.xl,
+    maxHeight: height * 0.85,
+    justifyContent: "center",
+  },
+  modal: {
     backgroundColor: ColorPalette.pure.white,
-    overflow: "hidden",
+    borderRadius: borderRadius.xl,
+    shadowColor: ColorPalette.neutral[900],
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+    maxHeight: height * 0.8,
   },
-  header: {
-    overflow: "hidden",
-  },
-  headerGradient: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  headerContent: {
+  headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  titleContainer: {
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  headerTitle: {
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: ColorPalette.primary[50],
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: spacing.md,
+  },
+  modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: ColorPalette.pure.white,
-    marginLeft: spacing.sm,
+    color: ColorPalette.neutral[800],
+    flex: 1,
   },
-  form: {
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ColorPalette.neutral[100],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  divider: {
+    backgroundColor: ColorPalette.neutral[200],
+    marginHorizontal: spacing.lg,
+  },
+  formContainer: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.md,
+    maxHeight: height * 0.5,
   },
   fieldContainer: {
     marginBottom: spacing.lg,
@@ -368,7 +428,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: ColorPalette.neutral[800],
+    color: ColorPalette.neutral[700],
     marginBottom: spacing.sm,
   },
   textInput: {
@@ -402,7 +462,7 @@ const styles = StyleSheet.create({
     backgroundColor: ColorPalette.primary[50],
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: ColorPalette.primary[600],
   },
@@ -428,16 +488,25 @@ const styles = StyleSheet.create({
     borderColor: ColorPalette.neutral[300],
   },
   cancelButtonText: {
-    color: ColorPalette.neutral[600],
     fontWeight: "600",
   },
   addButton: {
     flex: 1,
     borderRadius: borderRadius.lg,
     overflow: "hidden",
+    shadowColor: ColorPalette.primary[600],
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   addButtonDisabled: {
     opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   addButtonGradient: {
     flexDirection: "row",

@@ -40,7 +40,7 @@ interface EnhancedCartScreenProps {
 }
 
 const { height } = Dimensions.get("window");
-const HEADER_HEIGHT = height * 0.15;
+const HEADER_HEIGHT = height * 0.18;
 
 const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
   navigation,
@@ -387,6 +387,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
   },
   itemCountText: {
     fontSize: 14,
