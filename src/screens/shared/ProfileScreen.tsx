@@ -37,7 +37,7 @@ interface ProfileFormData {
 }
 
 const { width, height } = Dimensions.get("window");
-const HEADER_HEIGHT = height * 0.35;
+const HEADER_HEIGHT = height * 0.38; // Increased from 0.35 to 0.38
 const AVATAR_SIZE = 120;
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
@@ -291,7 +291,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   });
 
   const renderHeader = () => (
-    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
+    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity, zIndex: 100, marginBottom: 10 }]}>
       <LinearGradient
         colors={[
           ColorPalette.primary[700],
@@ -341,8 +341,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           />
         </Animated.View>
 
-        <SafeAreaView style={styles.headerContent}>
-          <View style={styles.headerTop}>
+        <SafeAreaView style={[styles.headerContent]}>
+          <View style={[styles.headerTop]}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
@@ -421,7 +421,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             )}
           </View>
 
-          <View style={styles.avatarContainer}>
+          <View style={[styles.avatarContainer]}>
             <Animated.View
               style={[
                 styles.avatarWrapper,
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.xl,
     justifyContent: "space-between",
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl, // Increased from lg to xl
   },
   headerTop: {
     flexDirection: "row",
@@ -826,6 +826,7 @@ const styles = StyleSheet.create({
   avatarContainer: {
     alignItems: "center",
     marginTop: spacing.lg,
+    marginBottom: spacing.md, // Added bottom margin
   },
   avatarWrapper: {
     position: "relative",
@@ -889,6 +890,7 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
     marginTop: spacing.xs,
+    marginBottom: spacing.sm, // Added bottom margin
   },
 
   // Content styles

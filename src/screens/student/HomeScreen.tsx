@@ -44,6 +44,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { addItem } = useCartActions();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Item[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
@@ -215,10 +218,48 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      navigation.navigate("Categories");
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
     }
+
+    setIsSearching(true);
+    try {
+      const { data, error } = await ItemService.searchItems(searchQuery.trim());
+      if (error) {
+        console.error("Search error:", error);
+        setSearchResults([]);
+      } else {
+        setSearchResults(data || []);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    if (!text.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    // Debounce search - wait 500ms after user stops typing
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearch();
+    }, 500);
   };
 
   const handleCategoryPress = (category: Category) => {
@@ -237,9 +278,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const getFilteredItems = () => {
+    // If there are search results, show them instead of regular items
+    if (searchResults.length > 0) {
+      return searchResults;
+    }
+    
+    // If a category is selected, filter items by category
     if (selectedCategory) {
       return items.filter(item => item.category_id === selectedCategory);
     }
+    
     return items;
   };
 
@@ -366,19 +414,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={styles.searchContainer}>
             <Searchbar
               placeholder="Search for items..."
-              onChangeText={setSearchQuery}
+              onChangeText={handleSearchChange}
               value={searchQuery}
               onSubmitEditing={handleSearch}
               style={styles.searchBar}
               inputStyle={styles.searchInput}
               icon={() => (
                 <Ionicons
-                  name="search"
+                  name={isSearching ? "hourglass-outline" : "search"}
                   size={20}
                   color={ColorPalette.primary[500]}
                 />
               )}
               iconColor={ColorPalette.primary[500]}
+              loading={isSearching}
             />
           </View>
         </SafeAreaView>
@@ -639,9 +688,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               color={ColorPalette.neutral[400]}
             />
             <Text style={{ fontSize: 16, color: ColorPalette.neutral[500], textAlign: "center", marginTop: spacing.md }}>
-              {selectedCategory 
-                ? "No items found in this category" 
-                : "No items available at the moment"}
+              {searchResults.length > 0 && filteredItems.length === 0
+                ? `No items found for "${searchQuery}"`
+                : selectedCategory 
+                  ? "No items found in this category" 
+                  : "No items available at the moment"}
             </Text>
           </View>
         </Animated.View>
@@ -661,13 +712,36 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       >
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {selectedCategory 
-              ? categories.find(c => c.id === selectedCategory)?.name || "Items"
-              : "All Items"}
+            {searchResults.length > 0 
+              ? `Search Results for "${searchQuery}"`
+              : selectedCategory 
+                ? categories.find(c => c.id === selectedCategory)?.name || "Items"
+                : "All Items"}
           </Text>
-          <Text style={{ fontSize: 14, color: ColorPalette.neutral[500], fontWeight: "500" }}>
-            {filteredItems.length} items
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, color: ColorPalette.neutral[500], fontWeight: "500", marginRight: spacing.md }}>
+              {filteredItems.length} items
+            </Text>
+            {searchResults.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setIsSearching(false);
+                }}
+                style={{
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.xs,
+                  backgroundColor: ColorPalette.neutral[100],
+                  borderRadius: borderRadius.sm,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: ColorPalette.neutral[600], fontWeight: "500" }}>
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
           {filteredItems.map((item) => (
@@ -846,7 +920,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       {renderHeader()}
 
-      {renderStickyCategories()}
+      {searchResults.length === 0 && renderStickyCategories()}
       <FlatList
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
