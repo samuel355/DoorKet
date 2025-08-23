@@ -12,21 +12,16 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, Searchbar } from "react-native-paper";
+import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
 
 import { useCart } from "../../hooks";
-import {
-  Loading,
-  EmptyState,
-  Button as CustomButton,
-  Input,
-} from "../../components/common";
+import { Loading, Input } from "../../components/common";
 import { formatCurrency, showConfirmation } from "../../utils";
 import { CartItem, StudentStackParamList } from "@/types";
-import { useAuth } from "@/store/authStore";
+// import { useAuth } from "@/store/authStore"; // Removed unused import
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
 import { CommonActions } from "@react-navigation/native";
@@ -44,12 +39,9 @@ const { width, height } = Dimensions.get("window");
 const HEADER_HEIGHT = height * 0.25;
 
 const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
-  const { user } = useAuth();
   const {
     cart,
     loading,
-    error,
-    addItem,
     removeItem,
     updateQuantity,
     clearCart,
@@ -57,12 +49,11 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     updateSpecialInstructions,
     itemCount,
     isEmpty,
-    canCheckout,
   } = useCart();
 
   const [deliveryAddress, setDeliveryAddress] = useState(cart.delivery_address);
   const [specialInstructions, setSpecialInstructions] = useState(
-    cart.special_instructions
+    cart.special_instructions,
   );
   const [isUpdatingAddress, setIsUpdatingAddress] = useState(false);
 
@@ -72,10 +63,6 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    startAnimations();
-  }, []);
 
   const startAnimations = useCallback(() => {
     Animated.sequence([
@@ -120,37 +107,41 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     ).start();
   }, [floatAnim, headerOpacity, cardScale, slideAnim, fadeAnim]);
 
-  const handleQuantityChange = useCallback(
-    async (itemId: string, newQuantity: number) => {
-      if (newQuantity < 1) {
-        handleRemoveItem(itemId);
-        return;
-      }
-      await updateQuantity(itemId, newQuantity);
-    },
-    [updateQuantity]
-  );
+  useEffect(() => {
+    startAnimations();
+  }, [startAnimations]);
 
   const handleRemoveItem = useCallback(
     (itemId: string) => {
       showConfirmation(
         "Remove Item",
         "Are you sure you want to remove this item from your cart?",
-        () => removeItem(itemId)
+        () => removeItem(itemId),
       );
     },
-    [removeItem]
+    [removeItem],
+  );
+
+  const handleQuantityChange = useCallback(
+    async (itemId: string, newQuantity: number) => {
+      if (newQuantity <= 0) {
+        handleRemoveItem(itemId);
+        return;
+      }
+      await updateQuantity(itemId, newQuantity);
+    },
+    [updateQuantity, handleRemoveItem],
   );
 
   const handleClearCart = useCallback(() => {
     showConfirmation(
       "Clear Cart",
       "Are you sure you want to remove all items from your cart?",
-      () => clearCart()
+      () => clearCart(),
     );
   }, [clearCart]);
 
@@ -169,26 +160,34 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     updateSpecialInstructions,
   ]);
 
-  const handleCheckout = useCallback(() => {
-    if (!canCheckout) {
-      if (isEmpty) {
-        Alert.alert(
-          "Empty Cart",
-          "Your cart is empty. Add some items to continue."
-        );
-        return;
-      }
-      if (!deliveryAddress.trim()) {
-        Alert.alert(
-          "Delivery Address Required",
-          "Please add a delivery address to continue."
-        );
-        return;
-      }
+  const handleCheckout = useCallback(async () => {
+    if (isEmpty) {
+      Alert.alert(
+        "Empty Cart",
+        "Your cart is empty. Add some items to continue.",
+      );
+      return;
     }
-    handleAddressUpdate();
-    navigation.navigate("Checkout");
-  }, [canCheckout, isEmpty, deliveryAddress, handleAddressUpdate, navigation]);
+
+    if (!deliveryAddress.trim()) {
+      Alert.alert(
+        "Delivery Address Required",
+        "Please add a delivery address to continue.",
+      );
+      return;
+    }
+
+    // Update delivery address first, then navigate
+    try {
+      await handleAddressUpdate();
+      navigation.navigate("Checkout");
+    } catch {
+      Alert.alert(
+        "Error",
+        "Failed to update delivery information. Please try again.",
+      );
+    }
+  }, [isEmpty, deliveryAddress, handleAddressUpdate, navigation]);
 
   const floatY = floatAnim.interpolate({
     inputRange: [0, 1],
@@ -549,7 +548,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
               CommonActions.navigate({
                 name: "HomeTab", // 👈 tab route name
                 params: { screen: "Categories" }, // 👈 stack screen inside HomeTab
-              })
+              }),
             )
           }
         >
@@ -578,12 +577,20 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         ]}
       >
         <TouchableOpacity
-          style={styles.checkoutButton}
+          style={[
+            styles.checkoutButton,
+            (!deliveryAddress.trim() || isEmpty) &&
+              styles.checkoutButtonDisabled,
+          ]}
           onPress={handleCheckout}
-          disabled={!canCheckout || isUpdatingAddress}
+          disabled={isEmpty || isUpdatingAddress}
         >
           <LinearGradient
-            colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
+            colors={
+              !deliveryAddress.trim() || isEmpty
+                ? [ColorPalette.neutral[300], ColorPalette.neutral[400]]
+                : [ColorPalette.primary[500], ColorPalette.primary[600]]
+            }
             style={styles.checkoutGradient}
           >
             <Ionicons name="card" size={24} color="#ffffff" />
@@ -593,10 +600,28 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
           </LinearGradient>
         </TouchableOpacity>
 
-        {!deliveryAddress.trim() && (
-          <Text style={styles.checkoutHint}>
-            Please add a delivery address to continue
-          </Text>
+        {!deliveryAddress.trim() && !isEmpty && (
+          <View style={styles.checkoutWarning}>
+            <Ionicons
+              name="warning"
+              size={16}
+              color={ColorPalette.warning[600]}
+            />
+            <Text style={styles.checkoutHint}>
+              Please add a delivery address to continue
+            </Text>
+          </View>
+        )}
+
+        {isEmpty && (
+          <View style={styles.checkoutWarning}>
+            <Ionicons
+              name="basket-outline"
+              size={16}
+              color={ColorPalette.neutral[500]}
+            />
+            <Text style={styles.checkoutHint}>Your cart is empty</Text>
+          </View>
         )}
       </Animated.View>
     );
@@ -970,6 +995,9 @@ const styles = StyleSheet.create({
   checkoutButton: {
     marginBottom: spacing.sm,
   },
+  checkoutButtonDisabled: {
+    opacity: 0.6,
+  },
   checkoutGradient: {
     flexDirection: "row",
     alignItems: "center",
@@ -988,11 +1016,18 @@ const styles = StyleSheet.create({
     color: ColorPalette.pure.white,
     marginLeft: spacing.sm,
   },
+  checkoutWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.sm,
+  },
   checkoutHint: {
     fontSize: 12,
-    color: ColorPalette.neutral[500],
+    color: ColorPalette.warning[600],
     textAlign: "center",
-    fontStyle: "italic",
+    marginLeft: spacing.xs,
+    fontWeight: "500",
   },
 });
 

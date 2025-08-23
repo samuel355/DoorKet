@@ -18,7 +18,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 
 import { Loading, ErrorState, Input } from "../../components/common";
-import { useCart } from "../../hooks";
 import { useCartStore, useCartActions } from "@/store/cartStore";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
@@ -43,12 +42,18 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
   route,
 }) => {
   const { itemId } = route.params;
-  const { addItem, loading: cartLoading } = useCart();
-
   // Cart store hooks
-  const { isItemInCart, getItemQuantity } = useCartStore();
-  const { updateQuantity: updateCartQuantity, removeItem: removeFromCart } =
-    useCartActions();
+  const {
+    isItemInCart,
+    getItemQuantity,
+    error: cartError,
+    clearError,
+  } = useCartStore();
+  const {
+    addItem,
+    updateQuantity: updateCartQuantity,
+    removeItem: removeFromCart,
+  } = useCartActions();
 
   // State
   const [item, setItem] = useState<Item | null>(null);
@@ -58,6 +63,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
   const [notes, setNotes] = useState("");
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [cartLoading, setCartLoading] = useState(false);
 
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -189,54 +195,56 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
     if (!item) return;
 
     try {
-      if (itemInCart) {
-        // Update existing cart item
-        const success = await addItem(
-          item,
-          quantity - cartQuantity,
-          notes.trim() || undefined,
-        );
-        if (success) {
-          Alert.alert(
-            "Success",
-            `Cart updated! ${item.name} quantity: ${quantity}`,
-            [
-              {
-                text: "Continue Shopping",
-                style: "cancel",
-              },
-              {
-                text: "View Cart",
-                onPress: () => navigation.navigate("CartTab"),
-              },
-            ],
-          );
+      setCartLoading(true);
+
+      // Clear any previous cart errors
+      clearError();
+
+      console.log("DEBUG: Adding item to cart:", {
+        itemId: item.id,
+        itemName: item.name,
+        quantity,
+        notes: notes.trim() || undefined,
+        itemInCart,
+        currentCartQuantity: cartQuantity,
+      });
+
+      // Add the selected quantity to cart using cart store
+      addItem(item, quantity, notes.trim() || undefined);
+
+      // Check for cart errors after adding
+      setTimeout(() => {
+        const currentError = useCartStore.getState().error;
+        if (currentError) {
+          console.error("Cart store error:", currentError);
+          Alert.alert("Error", currentError);
+          return;
         }
-      } else {
-        // Add new item to cart
-        const success = await addItem(
-          item,
-          quantity,
-          notes.trim() || undefined,
-        );
-        if (success) {
-          Alert.alert("Success", `${item.name} (${quantity}) added to cart!`, [
-            {
-              text: "Continue Shopping",
-              style: "cancel",
-            },
-            {
-              text: "View Cart",
-              onPress: () => navigation.navigate("CartTab"),
-            },
-          ]);
+
+        console.log("DEBUG: Item successfully added to cart store");
+
+        Alert.alert("Success", `${item.name} (${quantity}) added to cart!`, [
+          {
+            text: "Continue Shopping",
+            style: "cancel",
+          },
+          {
+            text: "View Cart",
+            onPress: () => navigation.navigate("CartTab"),
+          },
+        ]);
+
+        // Reset form only if item wasn't in cart before
+        if (!itemInCart) {
           setQuantity(1);
           setNotes("");
         }
-      }
+      }, 100);
     } catch (error) {
       console.error("Error adding to cart:", error);
       Alert.alert("Error", "Failed to add item to cart");
+    } finally {
+      setCartLoading(false);
     }
   };
 
@@ -562,7 +570,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
         </View>
       )}
 
-      {/* Order Section */}
+      {/* Order Section - Always show when item is available */}
       {item.is_available && (
         <LinearGradient
           colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
@@ -573,21 +581,20 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
           {/* Quantity Selector */}
           <View style={styles.quantityRow}>
             <Text style={styles.quantityLabel}>
-              {itemInCart ? "In Cart" : "Quantity"}
+              {itemInCart ? "Add More" : "Quantity"}
             </Text>
             <View style={styles.quantityControls}>
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
-                  currentQuantity <= (itemInCart ? 0 : 1) &&
-                    styles.quantityButtonDisabled,
+                  currentQuantity <= 1 && styles.quantityButtonDisabled,
                 ]}
                 onPress={() => updateQuantity(false)}
-                disabled={currentQuantity <= (itemInCart ? 0 : 1)}
+                disabled={currentQuantity <= 1}
               >
                 <LinearGradient
                   colors={
-                    currentQuantity <= (itemInCart ? 0 : 1)
+                    currentQuantity <= 1
                       ? [ColorPalette.neutral[200], ColorPalette.neutral[100]]
                       : [ColorPalette.primary[200], ColorPalette.primary[100]]
                   }
@@ -597,7 +604,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
                     name="remove"
                     size={20}
                     color={
-                      currentQuantity <= (itemInCart ? 0 : 1)
+                      currentQuantity <= 1
                         ? ColorPalette.neutral[400]
                         : ColorPalette.primary[600]
                     }
@@ -666,27 +673,28 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
                   GHS {totalPrice.toFixed(2)}
                 </Text>
               </View>
-              {itemInCart && (
-                <View style={styles.cartStatusIndicator}>
-                  <LinearGradient
-                    colors={[
-                      ColorPalette.success[100],
-                      ColorPalette.success[50],
-                    ]}
-                    style={styles.cartStatusBadge}
-                  >
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={16}
-                      color={ColorPalette.success[600]}
-                    />
-                    <Text style={styles.cartStatusText}>In Cart</Text>
-                  </LinearGradient>
-                </View>
-              )}
             </LinearGradient>
           )}
         </LinearGradient>
+      )}
+
+      {/* In Cart Status - Show info when item is in cart */}
+      {item.is_available && itemInCart && (
+        <View style={styles.inCartInfo}>
+          <LinearGradient
+            colors={[ColorPalette.success[100], ColorPalette.success[50]]}
+            style={styles.inCartBadge}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={16}
+              color={ColorPalette.success[600]}
+            />
+            <Text style={styles.inCartText}>
+              Already in cart: {cartQuantity} {item.unit}
+            </Text>
+          </LinearGradient>
+        </View>
       )}
     </Animated.View>
   );
@@ -716,7 +724,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
       {renderFloatingHeader()}
 
       {/* Add to Cart Button */}
-      {item.is_available && (
+      {item && item.is_available && (
         <View style={styles.bottomContainer}>
           <TouchableOpacity
             style={styles.addToCartButton}
@@ -733,14 +741,8 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
                 </View>
               ) : (
                 <View style={styles.buttonContent}>
-                  <Ionicons
-                    name={itemInCart ? "refresh" : "cart"}
-                    size={24}
-                    color="#ffffff"
-                  />
-                  <Text style={styles.addToCartText}>
-                    {itemInCart ? "Update Cart" : "Add to Cart"}
-                  </Text>
+                  <Ionicons name="cart" size={24} color="#ffffff" />
+                  <Text style={styles.addToCartText}>Add to Cart</Text>
                 </View>
               )}
             </LinearGradient>
@@ -1211,7 +1213,7 @@ const styles = StyleSheet.create({
   // Bottom Container
   bottomContainer: {
     position: "absolute",
-    bottom: 0,
+    bottom: 90, // Add margin to avoid tab overlap
     left: 0,
     right: 0,
     backgroundColor: ColorPalette.pure.white,
@@ -1317,23 +1319,23 @@ const styles = StyleSheet.create({
     color: ColorPalette.pure.white,
   },
 
-  // Cart Status Indicator
-  cartStatusIndicator: {
-    marginTop: spacing.sm,
-    alignItems: "center",
+  // In Cart Status
+  inCartInfo: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
-  cartStatusBadge: {
+  inCartBadge: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
   },
-  cartStatusText: {
-    marginLeft: spacing.xs,
+  inCartText: {
+    marginLeft: spacing.sm,
     fontSize: 14,
     fontWeight: "600",
-    color: ColorPalette.success[600],
+    color: ColorPalette.success[700],
   },
 });
 
