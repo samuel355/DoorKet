@@ -41,10 +41,9 @@ const HEADER_HEIGHT = height * 0.38; // Increased from 0.35 to 0.38
 const AVATAR_SIZE = 120;
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
-  const { user, profile, signOut, updateProfile } = useAuth();
+  const { user, profile, signOut, updateProfile, isUpdatingProfile } = useAuth();
 
   // State
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [profileData, setProfileData] = useState<ProfileFormData>({
@@ -64,6 +63,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const avatarScale = useRef(new Animated.Value(0)).current;
+  const loadingScale = useRef(new Animated.Value(0)).current;
 
   const startAnimations = useCallback(() => {
     Animated.sequence([
@@ -136,6 +136,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     startAnimations();
   }, [loadProfile, startAnimations]);
 
+  // Animate loading indicator
+  useEffect(() => {
+    if (isUpdatingProfile) {
+      Animated.spring(loadingScale, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(loadingScale, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isUpdatingProfile, loadingScale]);
+
   // Reload profile data when profile changes
   useEffect(() => {
     loadProfile();
@@ -186,8 +204,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     }
 
     try {
-      setLoading(true);
-
       // Clear any previous errors
       setErrors({});
 
@@ -216,8 +232,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         "Update Failed",
         error.message || "Failed to update profile. Please try again.",
       );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -267,7 +281,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           style: "destructive",
           onPress: async () => {
             try {
-              setLoading(true);
               console.log("Signing out user...");
               await signOut();
               console.log("User signed out successfully");
@@ -275,8 +288,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             } catch (error: any) {
               console.error("Sign out error:", error);
               Alert.alert("Error", "Failed to sign out. Please try again.");
-            } finally {
-              setLoading(false);
             }
           },
         },
@@ -369,7 +380,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                     loadProfile(); // Reset form data
                     setErrors({}); // Clear errors
                   }}
-                  disabled={loading}
+                  disabled={isUpdatingProfile}
                 >
                   <LinearGradient
                     colors={[
@@ -385,7 +396,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={handleSaveProfile}
-                  disabled={loading || uploading}
+                  disabled={isUpdatingProfile || uploading}
                 >
                   <LinearGradient
                     colors={[
@@ -394,10 +405,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                     ]}
                     style={styles.headerButton}
                   >
-                    {loading ? (
+                    {isUpdatingProfile ? (
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
-                      <Ionicons name="checkmark" size={24} color="#ffffff" />
+                      <Ionicons name="checkmark" size={20} color="#ffffff" />
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -406,7 +417,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               <TouchableOpacity
                 style={styles.editButton}
                 onPress={() => setEditing(true)}
-                disabled={loading || uploading}
+                disabled={isUpdatingProfile || uploading}
               >
                 <LinearGradient
                   colors={[
@@ -722,22 +733,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {renderActions()}
       </ScrollView>
 
-      {/* Loading Overlay */}
-      {loading && (
-        <View style={styles.loadingOverlay}>
+      {/* Elegant Loading Indicator */}
+      <Animated.View 
+        style={[
+          styles.loadingOverlay,
+          {
+            opacity: loadingScale,
+          }
+        ]}
+      >
+        <Animated.View 
+          style={[
+            styles.loadingIndicator,
+            {
+              transform: [{ scale: loadingScale }],
+            }
+          ]}
+        >
           <LinearGradient
-            colors={["rgba(0, 0, 0, 0.3)", "rgba(0, 0, 0, 0.5)"]}
+            colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
             style={styles.loadingGradient}
           >
-            <View style={styles.loadingContent}>
-              <ActivityIndicator size="large" color={ColorPalette.pure.white} />
-              <Text style={styles.loadingText}>
-                {editing ? "Saving your profile..." : "Please wait..."}
-              </Text>
-            </View>
+            <ActivityIndicator size="small" color={ColorPalette.pure.white} />
+            <Text style={styles.loadingText}>Saving...</Text>
           </LinearGradient>
-        </View>
-      )}
+        </Animated.View>
+      </Animated.View>
     </View>
   );
 };
@@ -967,33 +988,38 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
 
-  // Loading overlay styles
+  // Elegant loading indicator styles
   loadingOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 1000,
+  },
+  loadingIndicator: {
+    position: "relative",
   },
   loadingGradient: {
-    flex: 1,
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
-  },
-  loadingContent: {
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.2)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 14,
     color: ColorPalette.pure.white,
-    marginTop: spacing.md,
-    textAlign: "center",
+    marginLeft: spacing.sm,
+    fontWeight: "600",
   },
 
   // Actions styles

@@ -55,6 +55,7 @@ interface AuthState {
   profile: AppUser | null;
   session: Session | null;
   isLoading: boolean;
+  isUpdatingProfile: boolean; // Separate loading state for profile updates
   isAuthenticated: boolean;
   isInitialized: boolean;
   justLoggedOut: boolean;
@@ -146,6 +147,7 @@ export const useAuthStore = create<AuthState>()(
         profile: null,
         session: null,
         isLoading: false,
+        isUpdatingProfile: false,
         isAuthenticated: false,
         isInitialized: false,
         justLoggedOut: false,
@@ -596,7 +598,7 @@ export const useAuthStore = create<AuthState>()(
 
         updateProfile: async (updates) => {
           try {
-            set({ isLoading: true, error: null });
+            set({ isUpdatingProfile: true, error: null });
             const currentUser = get().user;
             if (!currentUser) throw new Error("No authenticated user found");
 
@@ -606,7 +608,7 @@ export const useAuthStore = create<AuthState>()(
 
             set({
               profile: updatedProfile,
-              isLoading: false,
+              isUpdatingProfile: false,
               error: null,
               lastError: null,
             });
@@ -614,7 +616,7 @@ export const useAuthStore = create<AuthState>()(
           } catch (err: any) {
             const msg = err.message || "Failed to update profile";
             set({
-              isLoading: false,
+              isUpdatingProfile: false,
               error: msg,
               lastError: {
                 message: msg,
