@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -11,7 +11,7 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, Button, IconButton, Portal, Modal } from "react-native-paper";
+import { Text, Portal, Modal } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +19,7 @@ import { BlurView } from "expo-blur";
 
 import { Loading, ErrorState, Input } from "../../components/common";
 import { useCart } from "../../hooks";
+import { useCartStore, useCartActions } from "@/store/cartStore";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
 import { Item } from "@/types";
@@ -44,6 +45,11 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
   const { itemId } = route.params;
   const { addItem, loading: cartLoading } = useCart();
 
+  // Cart store hooks
+  const { isItemInCart, getItemQuantity } = useCartStore();
+  const { updateQuantity: updateCartQuantity, removeItem: removeFromCart } =
+    useCartActions();
+
   // State
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +64,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const cardScale = useRef(new Animated.Value(0.8)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const heartScaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -79,6 +86,51 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
     outputRange: [1.2, 1],
     extrapolate: "clamp",
   });
+
+  const startAnimations = useCallback(() => {
+    // Stagger entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUpAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(cardScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Floating animation for decorative elements
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [floatAnim, cardScale, slideUpAnim, fadeAnim, scaleAnim]);
 
   // Load item details
   const loadItem = useCallback(async () => {
@@ -104,56 +156,32 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [itemId]);
+  }, [itemId, startAnimations]);
 
-  const startAnimations = () => {
-    // Stagger entrance animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideUpAnim, {
-        toValue: 0,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Floating animation for decorative elements
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  };
+  // Check if item is in cart and get quantity
+  const itemInCart = item ? isItemInCart(item.id) : false;
+  const cartQuantity = item ? getItemQuantity(item.id) : 0;
 
   // Handle quantity change
   const updateQuantity = (increment: boolean) => {
-    setQuantity((prev) => {
-      if (increment) {
-        return Math.min(prev + 1, 99);
+    if (itemInCart) {
+      // Update cart quantity directly
+      const newQuantity = increment ? cartQuantity + 1 : cartQuantity - 1;
+      if (newQuantity <= 0) {
+        removeFromCart(item!.id);
       } else {
-        return Math.max(prev - 1, 1);
+        updateCartQuantity(item!.id, Math.min(newQuantity, 99));
       }
-    });
+    } else {
+      // Update local state for new items
+      setQuantity((prev) => {
+        if (increment) {
+          return Math.min(prev + 1, 99);
+        } else {
+          return Math.max(prev - 1, 1);
+        }
+      });
+    }
   };
 
   // Handle add to cart
@@ -161,21 +189,50 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
     if (!item) return;
 
     try {
-      const success = await addItem(item, quantity, notes.trim() || undefined);
-      if (success) {
-        Alert.alert("Success", `${item.name} (${quantity}) added to cart!`, [
-          {
-            text: "Continue Shopping",
-            style: "cancel",
-          },
-          {
-            text: "View Cart",
-            onPress: () => navigation.navigate("Cart"),
-          },
-        ]);
-
-        setQuantity(1);
-        setNotes("");
+      if (itemInCart) {
+        // Update existing cart item
+        const success = await addItem(
+          item,
+          quantity - cartQuantity,
+          notes.trim() || undefined,
+        );
+        if (success) {
+          Alert.alert(
+            "Success",
+            `Cart updated! ${item.name} quantity: ${quantity}`,
+            [
+              {
+                text: "Continue Shopping",
+                style: "cancel",
+              },
+              {
+                text: "View Cart",
+                onPress: () => navigation.navigate("CartTab"),
+              },
+            ],
+          );
+        }
+      } else {
+        // Add new item to cart
+        const success = await addItem(
+          item,
+          quantity,
+          notes.trim() || undefined,
+        );
+        if (success) {
+          Alert.alert("Success", `${item.name} (${quantity}) added to cart!`, [
+            {
+              text: "Continue Shopping",
+              style: "cancel",
+            },
+            {
+              text: "View Cart",
+              onPress: () => navigation.navigate("CartTab"),
+            },
+          ]);
+          setQuantity(1);
+          setNotes("");
+        }
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
@@ -204,7 +261,8 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
     ]).start();
   };
 
-  const totalPrice = (item?.base_price || 0) * quantity;
+  const currentQuantity = itemInCart ? cartQuantity : quantity;
+  const totalPrice = (item?.base_price || 0) * currentQuantity;
   const floatY = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -20],
@@ -444,7 +502,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
 
       {/* Price Section */}
       <LinearGradient
-        colors={[ColorPalette.primary[50], ColorPalette.primary[25]]}
+        colors={[ColorPalette.primary[50], ColorPalette.primary[50]]}
         style={styles.priceSection}
       >
         <View style={styles.priceContent}>
@@ -514,19 +572,22 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
 
           {/* Quantity Selector */}
           <View style={styles.quantityRow}>
-            <Text style={styles.quantityLabel}>Quantity</Text>
+            <Text style={styles.quantityLabel}>
+              {itemInCart ? "In Cart" : "Quantity"}
+            </Text>
             <View style={styles.quantityControls}>
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
-                  quantity <= 1 && styles.quantityButtonDisabled,
+                  currentQuantity <= (itemInCart ? 0 : 1) &&
+                    styles.quantityButtonDisabled,
                 ]}
                 onPress={() => updateQuantity(false)}
-                disabled={quantity <= 1}
+                disabled={currentQuantity <= (itemInCart ? 0 : 1)}
               >
                 <LinearGradient
                   colors={
-                    quantity <= 1
+                    currentQuantity <= (itemInCart ? 0 : 1)
                       ? [ColorPalette.neutral[200], ColorPalette.neutral[100]]
                       : [ColorPalette.primary[200], ColorPalette.primary[100]]
                   }
@@ -536,7 +597,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
                     name="remove"
                     size={20}
                     color={
-                      quantity <= 1
+                      currentQuantity <= (itemInCart ? 0 : 1)
                         ? ColorPalette.neutral[400]
                         : ColorPalette.primary[600]
                     }
@@ -545,13 +606,13 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
               </TouchableOpacity>
 
               <View style={styles.quantityDisplay}>
-                <Text style={styles.quantityValue}>{quantity}</Text>
+                <Text style={styles.quantityValue}>{currentQuantity}</Text>
               </View>
 
               <TouchableOpacity
                 style={styles.quantityButton}
                 onPress={() => updateQuantity(true)}
-                disabled={quantity >= 99}
+                disabled={currentQuantity >= 99}
               >
                 <LinearGradient
                   colors={[
@@ -605,6 +666,24 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
                   GHS {totalPrice.toFixed(2)}
                 </Text>
               </View>
+              {itemInCart && (
+                <View style={styles.cartStatusIndicator}>
+                  <LinearGradient
+                    colors={[
+                      ColorPalette.success[100],
+                      ColorPalette.success[50],
+                    ]}
+                    style={styles.cartStatusBadge}
+                  >
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={ColorPalette.success[600]}
+                    />
+                    <Text style={styles.cartStatusText}>In Cart</Text>
+                  </LinearGradient>
+                </View>
+              )}
             </LinearGradient>
           )}
         </LinearGradient>
@@ -654,8 +733,14 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
                 </View>
               ) : (
                 <View style={styles.buttonContent}>
-                  <Ionicons name="cart" size={24} color="#ffffff" />
-                  <Text style={styles.addToCartText}>Add to Cart</Text>
+                  <Ionicons
+                    name={itemInCart ? "refresh" : "cart"}
+                    size={24}
+                    color="#ffffff"
+                  />
+                  <Text style={styles.addToCartText}>
+                    {itemInCart ? "Update Cart" : "Add to Cart"}
+                  </Text>
                 </View>
               )}
             </LinearGradient>
@@ -1230,6 +1315,25 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimary: {
     color: ColorPalette.pure.white,
+  },
+
+  // Cart Status Indicator
+  cartStatusIndicator: {
+    marginTop: spacing.sm,
+    alignItems: "center",
+  },
+  cartStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  cartStatusText: {
+    marginLeft: spacing.xs,
+    fontSize: 14,
+    fontWeight: "600",
+    color: ColorPalette.success[600],
   },
 });
 
