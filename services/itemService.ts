@@ -65,6 +65,35 @@ export class ItemService {
   }
 
   /**
+   * Get all available items
+   */
+  static async getAllItems(limit?: number) {
+    try {
+      let query = supabase
+        .from("items")
+        .select(
+          `
+          *,
+          category:categories(*)
+        `,
+        )
+        .eq("is_available", true)
+        .order("name", { ascending: true });
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      console.error("Get all items error:", error);
+      return { data: null, error: error.message };
+    }
+  }
+
+  /**
    * Search items
    */
   static async searchItems(query: string) {

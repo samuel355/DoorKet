@@ -1,5 +1,5 @@
 import { useAuth } from "@/store/authStore";
-import { Category, Order, StudentStackParamList } from "@/types";
+import { Category, Order, StudentStackParamList, Item } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,6 +15,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  FlatList,
+  Image,
 } from "react-native";
 import { Searchbar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +24,7 @@ import { ColorPalette } from "../../theme/colors";
 import { borderRadius, spacing } from "../../theme/styling";
 import { ItemService } from "@/services/itemService";
 import { OrderService } from "@/services/orderService";
+import { useCartActions } from "@/store/cartStore";
 
 type HomeScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -34,16 +37,23 @@ interface HomeScreenProps {
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = (width - 60) / 2;
-const HEADER_HEIGHT = height * 0.28;
+const HEADER_HEIGHT = height * 0.25; // Reduced from 0.28 to prevent overlap
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { user, profile } = useAuth();
+  const { addItem } = useCartActions();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showStickyCategories, setShowStickyCategories] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const stickyOpacity = useRef(new Animated.Value(0)).current;
+  const stickyTranslateY = useRef(new Animated.Value(-50)).current;
 
   // Animation values
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -131,6 +141,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, []);
 
+  const loadItems = useCallback(async () => {
+    try {
+      const { data, error } = await ItemService.getAllItems(20); // Load first 20 items
+      if (error) {
+        console.error("Error loading items:", error);
+        return;
+      }
+      setItems(data || []);
+    } catch (error) {
+      console.error("Error loading items:", error);
+    }
+  }, []);
+
   const loadRecentOrders = useCallback(async () => {
     if (!user) return;
 
@@ -149,13 +172,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const loadInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([loadCategories(), loadRecentOrders()]);
+      await Promise.all([loadCategories(), loadItems(), loadRecentOrders()]);
     } catch (error) {
       console.error("Error loading home data:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [loadCategories, loadRecentOrders]);
+  }, [loadCategories, loadItems, loadRecentOrders]);
 
   useEffect(() => {
     const loadAndAnimate = async () => {
@@ -169,6 +192,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setIsRefreshing(true);
     await loadInitialData();
     setIsRefreshing(false);
+  };
+
+  const handleScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    // Show sticky categories when scrolling past the quick actions and categories sections
+    const shouldShow = offsetY > 200;
+    if (shouldShow !== showStickyCategories) {
+      setShowStickyCategories(shouldShow);
+      Animated.parallel([
+        Animated.timing(stickyOpacity, {
+          toValue: shouldShow ? 1 : 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(stickyTranslateY, {
+          toValue: shouldShow ? 0 : -50,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
   };
 
   const handleSearch = () => {
@@ -186,6 +230,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleOrderPress = (order: Order) => {
     navigation.navigate("OrderTracking", { orderId: order.id });
+  };
+
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(selectedCategory === categoryId ? null : categoryId);
+  };
+
+  const getFilteredItems = () => {
+    if (selectedCategory) {
+      return items.filter(item => item.category_id === selectedCategory);
+    }
+    return items;
   };
 
   const getGreeting = () => {
@@ -238,7 +293,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   });
 
   const renderHeader = () => (
-    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
+    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity, zIndex: 100  }]}>
       <LinearGradient
         colors={[
           ColorPalette.primary[600],
@@ -274,7 +329,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ]}
         />
 
-        <SafeAreaView style={styles.headerContent}>
+        <SafeAreaView style={[styles.headerContent]}>
           <View style={styles.headerTop}>
             <View style={styles.greetingContainer}>
               <Text style={styles.greeting}>{getGreeting()}</Text>
@@ -410,6 +465,85 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     </Animated.View>
   );
 
+  const renderStickyCategories = () => (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          top: HEADER_HEIGHT,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          backgroundColor: ColorPalette.pure.white,
+          paddingVertical: spacing.sm,
+          borderBottomWidth: 1,
+          borderBottomColor: ColorPalette.neutral[100],
+          elevation: 3,
+          shadowColor: "rgba(0, 0, 0, 0.1)",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 1,
+          shadowRadius: 4,
+          opacity: stickyOpacity,
+          transform: [{ translateY: stickyTranslateY }],
+        },
+      ]}
+    >
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+      >
+        <TouchableOpacity
+          style={{
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            marginRight: spacing.sm,
+            borderRadius: borderRadius.full,
+            backgroundColor: !selectedCategory ? ColorPalette.primary[500] : ColorPalette.neutral[100],
+            borderWidth: 1,
+            borderColor: !selectedCategory ? ColorPalette.primary[500] : ColorPalette.neutral[200],
+          }}
+          onPress={() => setSelectedCategory(null)}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: !selectedCategory ? "600" : "500",
+              color: !selectedCategory ? ColorPalette.pure.white : ColorPalette.neutral[600],
+            }}
+          >
+            All Items
+          </Text>
+        </TouchableOpacity>
+        {categories.map((category) => (
+          <TouchableOpacity
+            key={category.id}
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              marginRight: spacing.sm,
+              borderRadius: borderRadius.full,
+              backgroundColor: selectedCategory === category.id ? ColorPalette.primary[500] : ColorPalette.neutral[100],
+              borderWidth: 1,
+              borderColor: selectedCategory === category.id ? ColorPalette.primary[500] : ColorPalette.neutral[200],
+            }}
+            onPress={() => handleCategorySelect(category.id)}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: selectedCategory === category.id ? "600" : "500",
+                color: selectedCategory === category.id ? ColorPalette.pure.white : ColorPalette.neutral[600],
+              }}
+            >
+              {category.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </Animated.View>
+  );
+
   const renderCategories = () => (
     <Animated.View
       style={[
@@ -483,6 +617,169 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     </Animated.View>
   );
 
+  const renderItems = () => {
+    const filteredItems = getFilteredItems();
+    
+    if (filteredItems.length === 0) {
+      return (
+        <Animated.View
+          style={[
+            {
+              paddingHorizontal: spacing.lg,
+              marginBottom: spacing.lg, // Reduced margin
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={{ alignItems: "center", paddingVertical: spacing.xxxxl }}>
+            <Ionicons
+              name="basket-outline"
+              size={48}
+              color={ColorPalette.neutral[400]}
+            />
+            <Text style={{ fontSize: 16, color: ColorPalette.neutral[500], textAlign: "center", marginTop: spacing.md }}>
+              {selectedCategory 
+                ? "No items found in this category" 
+                : "No items available at the moment"}
+            </Text>
+          </View>
+        </Animated.View>
+      );
+    }
+
+    return (
+      <Animated.View
+        style={[
+          {
+            paddingHorizontal: spacing.lg,
+            marginBottom: spacing.lg, // Reduced margin
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {selectedCategory 
+              ? categories.find(c => c.id === selectedCategory)?.name || "Items"
+              : "All Items"}
+          </Text>
+          <Text style={{ fontSize: 14, color: ColorPalette.neutral[500], fontWeight: "500" }}>
+            {filteredItems.length} items
+          </Text>
+        </View>
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: spacing.lg }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={{
+                width: (width - spacing.lg * 3) / 2,
+                marginBottom: spacing.md,
+                marginRight: spacing.md,
+              }}
+              onPress={() => navigation.navigate("ItemDetails", { itemId: item.id })}
+            >
+              <LinearGradient
+                colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+                style={{
+                  borderRadius: borderRadius.lg,
+                  elevation: 2, // Reduced elevation
+                  shadowColor: "rgba(0, 0, 0, 0.08)", // Lighter shadow
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 1,
+                  shadowRadius: 4,
+                  overflow: "hidden",
+                }}
+              >
+                <View style={{
+                  height: 120,
+                  backgroundColor: ColorPalette.neutral[100],
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}>
+                  {item.image_url ? (
+                    <Image 
+                      source={{ uri: item.image_url }} 
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        resizeMode: "cover",
+                      }} 
+                    />
+                  ) : (
+                    <View style={{
+                      width: "100%",
+                      height: "100%",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: ColorPalette.neutral[100],
+                    }}>
+                      <Ionicons
+                        name="image-outline"
+                        size={32}
+                        color={ColorPalette.neutral[400]}
+                      />
+                    </View>
+                  )}
+                </View>
+                <View style={{ padding: spacing.md }}>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color: ColorPalette.neutral[800],
+                    marginBottom: spacing.xs,
+                    lineHeight: 18,
+                  }} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={{
+                    fontSize: 12,
+                    color: ColorPalette.neutral[500],
+                    marginBottom: spacing.sm,
+                  }}>
+                    {item.category?.name || "Unknown Category"}
+                  </Text>
+                  <View style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: "bold",
+                      color: ColorPalette.primary[600],
+                    }}>
+                      GHS {item.base_price?.toFixed(2) || "N/A"}
+                    </Text>
+                    <TouchableOpacity
+                      style={{ padding: spacing.xs }}
+                      onPress={() => {
+                        if (item.base_price && item.base_price > 0) {
+                          addItem(item, 1);
+                        }
+                      }}
+                    >
+                      <Ionicons
+                        name="add-circle"
+                        size={20}
+                        color={ColorPalette.primary[500]}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        />
+      </Animated.View>
+    );
+  };
+
   const renderRecentOrders = () => {
     if (recentOrders.length === 0) return null;
 
@@ -554,9 +851,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       {renderHeader()}
 
+      {renderStickyCategories()}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -569,6 +869,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       >
         {renderQuickActions()}
         {renderCategories()}
+        {renderItems()}
         {renderRecentOrders()}
       </ScrollView>
     </View>
@@ -578,7 +879,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ColorPalette.neutral[50],
+    backgroundColor: ColorPalette.neutral[50], // Keep original background
   },
   headerContainer: {
     height: HEADER_HEIGHT,
@@ -676,24 +977,24 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: -spacing.xl,
+    marginTop: -spacing.lg, // Reduced negative margin to prevent overlap
   },
   scrollContent: {
     paddingBottom: spacing.xxxxl,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg, // Reduced top padding
   },
   quickActionsContainer: {
     backgroundColor: ColorPalette.pure.white,
     marginHorizontal: spacing.lg,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg, // Reduced margin
     elevation: 4,
     shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
-    marginTop: 12
+    marginTop: 8 // Reduced top margin
   },
   quickActions: {
     flexDirection: "row",
@@ -723,17 +1024,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18, // Slightly smaller
     fontWeight: "bold",
     color: ColorPalette.neutral[800],
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md, // Reduced margin
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md, // Reduced margin
+    paddingTop: spacing.sm, // Added top padding
   },
   viewAllText: {
     fontSize: 14,
@@ -741,12 +1043,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   categoriesContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg, // Reduced margin for better spacing
   },
   categoriesScroll: {
     paddingLeft: spacing.lg,
     paddingRight: spacing.sm,
   },
+
   categoryCard: {
     width: CARD_WIDTH,
     marginRight: spacing.md,
@@ -781,6 +1084,7 @@ const styles = StyleSheet.create({
   },
   recentOrdersContainer: {
     paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm, // Added top margin for better separation
   },
   orderCard: {
     marginBottom: spacing.md,
