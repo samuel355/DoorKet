@@ -2,24 +2,23 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
   StatusBar,
   Dimensions,
   RefreshControl,
   TouchableOpacity,
   Animated,
-  Easing,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, Card, Badge, useTheme } from "react-native-paper";
+import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList, Order, RunnerStats } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
-import { borderRadius, spacing } from "../../theme/styling";
 
 type RunnerDashboardNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -31,12 +30,12 @@ interface RunnerDashboardProps {
 }
 
 const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = (width - 60) / 2;
+const CARD_WIDTH = (width - 48) / 2;
+const HERO_HEIGHT = height * 0.32;
 
 const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
   navigation,
 }) => {
-  const theme = useTheme();
   const { user, profile } = useAuth();
 
   // State
@@ -54,104 +53,128 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Animation refs
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-  const cardScale = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const heroScale = useRef(new Animated.Value(0.9)).current;
+  const cardAnimations = useRef(
+    Array(6)
+      .fill(0)
+      .map(() => new Animated.Value(0)),
+  ).current;
+  const slideAnimations = useRef(
+    Array(4)
+      .fill(0)
+      .map(() => new Animated.Value(50)),
+  ).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatingActionAnim = useRef(new Animated.Value(0)).current;
 
   // Start entrance animations
   const startAnimations = useCallback(() => {
+    // Hero animation
     Animated.parallel([
-      Animated.timing(headerOpacity, {
+      Animated.timing(heroOpacity, {
         toValue: 1,
-        duration: 800,
+        duration: 1000,
         useNativeDriver: true,
       }),
-      Animated.spring(cardScale, {
+      Animated.spring(heroScale, {
         toValue: 1,
-        tension: 80,
+        tension: 50,
         friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Pulse animation for urgent orders
+    // Staggered card animations
+    const cardStagger = cardAnimations.map((anim, index) =>
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 600,
+        delay: index * 100,
+        useNativeDriver: true,
+      }),
+    );
+
+    const slideStagger = slideAnimations.map((anim, index) =>
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 800,
+        delay: index * 150,
+        useNativeDriver: true,
+      }),
+    );
+
+    // Floating action button
+    Animated.timing(floatingActionAnim, {
+      toValue: 1,
+      duration: 800,
+      delay: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.1,
-          duration: 1000,
+          duration: 1500,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 1500,
           useNativeDriver: true,
         }),
       ]),
+      { iterations: -1 },
     ).start();
-  }, []);
+
+    Animated.stagger(100, [...cardStagger, ...slideStagger]).start();
+  }, [
+    cardAnimations,
+    slideAnimations,
+    heroOpacity,
+    heroScale,
+    floatingActionAnim,
+    pulseAnim,
+  ]);
 
   // Load dashboard data
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      setIsLoading(true);
+      const [availableResult, activeResult, statsResult] = await Promise.all([
+        OrderService.getAvailableOrders(),
+        OrderService.getRunnerActiveOrders(user.id),
+        OrderService.getRunnerStats(user.id),
+      ]);
 
-      // Load available orders
-      const availableResult = await OrderService.getAvailableOrders();
-      if (availableResult.data) {
-        setAvailableOrders(availableResult.data);
-      }
-
-      // Load runner's active orders
-      const activeResult = await OrderService.getRunnerActiveOrders(user.id);
-      if (activeResult.data) {
-        setActiveOrders(activeResult.data);
-      }
-
-      // Load runner statistics
-      const statsResult = await OrderService.getRunnerStats(user.id);
-      if (statsResult.data) {
-        setStats(statsResult.data);
-      }
+      if (availableResult.data) setAvailableOrders(availableResult.data);
+      if (activeResult.data) setActiveOrders(activeResult.data);
+      if (statsResult.data) setStats(statsResult.data);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [user?.id]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadDashboardData();
-  }, [user?.id]);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     loadDashboardData();
     startAnimations();
 
-    // Set up real-time updates
-    const interval = setInterval(loadDashboardData, 30000); // Refresh every 30 seconds
+    const interval = setInterval(loadDashboardData, 30000);
     return () => clearInterval(interval);
-  }, [user?.id]);
+  }, [loadDashboardData, startAnimations]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -167,349 +190,534 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "#FF9800";
+        return ColorPalette.warning[500];
       case "accepted":
-        return "#2196F3";
+        return ColorPalette.info[500];
       case "shopping":
-        return "#9C27B0";
+        return ColorPalette.accent[500];
       case "delivering":
-        return "#FF5722";
+        return ColorPalette.secondary[500];
       case "completed":
-        return "#4CAF50";
+        return ColorPalette.success[500];
       default:
-        return "#757575";
+        return ColorPalette.neutral[500];
     }
   };
 
-  const renderHeader = () => (
-    <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+  // Header parallax effect
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT],
+    outputRange: [0, -HERO_HEIGHT / 2],
+    extrapolate: "clamp",
+  });
+
+  const headerOpacityInterpolate = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT - 100, HERO_HEIGHT],
+    outputRange: [1, 0.8, 0],
+    extrapolate: "clamp",
+  });
+
+  const renderHeroSection = () => (
+    <Animated.View
+      style={[
+        styles.heroContainer,
+        {
+          transform: [{ translateY: headerTranslateY }, { scale: heroScale }],
+          opacity: Animated.multiply(heroOpacity, headerOpacityInterpolate),
+        },
+      ]}
+    >
       <LinearGradient
-        colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
-        style={styles.headerGradient}
+        colors={[ColorPalette.primary[500], ColorPalette.primary[600]] as const}
+        style={styles.heroGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View style={styles.headerContent}>
-          <View style={styles.greetingSection}>
-            <Text style={styles.greeting}>
-              {getGreeting()}, {profile?.full_name || "Runner"}!
-            </Text>
-            <Text style={styles.subGreeting}>
-              Ready to make some deliveries?
-            </Text>
+        <View style={styles.heroBackground}>
+          {/* Decorative elements */}
+          <View style={styles.decorativeElements}>
+            <Animated.View
+              style={[
+                styles.floatingOrb,
+                styles.orb1,
+                { transform: [{ scale: pulseAnim }] },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.floatingOrb,
+                styles.orb2,
+                {
+                  transform: [
+                    {
+                      scale: Animated.subtract(
+                        1.2,
+                        Animated.subtract(pulseAnim, 1),
+                      ),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <View style={[styles.floatingOrb, styles.orb3]} />
           </View>
 
-          <View style={styles.headerStats}>
-            <View style={styles.headerStatItem}>
-              <Text style={styles.headerStatValue}>
-                {formatCurrency(stats.total_earnings || 0)}
+          <View style={styles.heroContent}>
+            <View style={styles.greetingSection}>
+              <Text style={styles.greeting}>{getGreeting()},</Text>
+              <Text style={styles.userName}>
+                {profile?.full_name?.split(" ")[0] || "Runner"}! 👋
               </Text>
-              <Text style={styles.headerStatLabel}>Total Earnings</Text>
+              <Text style={styles.heroSubtitle}>
+                Ready to make some deliveries?
+              </Text>
             </View>
-            <View style={styles.headerStatItem}>
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Text style={styles.headerStatValue}>
-                  {stats.average_rating?.toFixed(1) || "0.0"}
-                </Text>
+
+            <View style={styles.heroStatsContainer}>
+              <View style={styles.heroStatCard}>
+                <BlurView intensity={20} tint="light" style={styles.blurCard}>
+                  <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
+                  <Text style={styles.heroStatValue}>
+                    {formatCurrency(stats.total_earnings || 0)}
+                  </Text>
+                  <Text style={styles.heroStatLabel}>Total Earnings</Text>
+                </BlurView>
               </View>
-              <Text style={styles.headerStatLabel}>Rating</Text>
+
+              <View style={styles.heroStatCard}>
+                <BlurView intensity={20} tint="light" style={styles.blurCard}>
+                  <Ionicons name="star" size={24} color="#FFD700" />
+                  <Text style={styles.heroStatValue}>
+                    {stats.average_rating?.toFixed(1) || "0.0"}
+                  </Text>
+                  <Text style={styles.heroStatLabel}>Rating</Text>
+                </BlurView>
+              </View>
             </View>
           </View>
-        </View>
-
-        <View style={styles.headerDecoration}>
-          <Animated.View
-            style={[
-              styles.decorativeCircle,
-              { transform: [{ scale: pulseAnim }] },
-            ]}
-          />
-          <View style={styles.decorativeCircleSmall} />
         </View>
       </LinearGradient>
     </Animated.View>
   );
 
   const renderQuickActions = () => (
-    <Animated.View
-      style={[
-        styles.quickActionsContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => navigation.navigate("AvailableOrders")}
-        >
-          <View
-            style={[styles.quickActionIcon, { backgroundColor: "#E8F5E8" }]}
-          >
-            <Ionicons name="list-circle" size={24} color="#4CAF50" />
-          </View>
-          <Text style={styles.quickActionText}>Available Orders</Text>
-          {availableOrders.length > 0 && (
-            <Badge style={styles.quickActionBadge} size={20}>
-              {availableOrders.length}
-            </Badge>
-          )}
-        </TouchableOpacity>
+    <View style={styles.quickActionsSection}>
+      <Animated.Text
+        style={[
+          styles.sectionTitle,
+          {
+            opacity: cardAnimations[0],
+            transform: [{ translateY: slideAnimations[0] }],
+          },
+        ]}
+      >
+        Quick Actions
+      </Animated.Text>
 
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => navigation.navigate("AcceptedOrders")}
-        >
-          <View
-            style={[styles.quickActionIcon, { backgroundColor: "#E3F2FD" }]}
+      <View style={styles.quickActionsGrid}>
+        {[
+          {
+            icon: "list-circle-outline",
+            title: "Available\nOrders",
+            color: ColorPalette.success[500],
+            bgColor: ColorPalette.success[50],
+            count: availableOrders.length,
+            onPress: () => navigation.navigate("AvailableOrders"),
+            animation: cardAnimations[0],
+          },
+          {
+            icon: "checkmark-circle-outline",
+            title: "Active\nOrders",
+            color: ColorPalette.info[500],
+            bgColor: ColorPalette.info[50],
+            count: activeOrders.length,
+            onPress: () => navigation.navigate("AcceptedOrders"),
+            animation: cardAnimations[1],
+          },
+          {
+            icon: "analytics-outline",
+            title: "Earnings",
+            color: ColorPalette.accent[500],
+            bgColor: ColorPalette.accent[50],
+            onPress: () => navigation.navigate("Earnings"),
+            animation: cardAnimations[2],
+          },
+          {
+            icon: "person-circle-outline",
+            title: "Profile",
+            color: ColorPalette.primary[500],
+            bgColor: ColorPalette.primary[50],
+            onPress: () => navigation.navigate("Profile"),
+            animation: cardAnimations[3],
+          },
+        ].map((action, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.quickActionCard,
+              {
+                opacity: action.animation,
+                transform: [{ scale: action.animation }],
+              },
+            ]}
           >
-            <Ionicons name="checkmark-circle" size={24} color="#2196F3" />
-          </View>
-          <Text style={styles.quickActionText}>Active Orders</Text>
-          {activeOrders.length > 0 && (
-            <Badge style={styles.quickActionBadge} size={20}>
-              {activeOrders.length}
-            </Badge>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => navigation.navigate("Earnings")}
-        >
-          <View
-            style={[styles.quickActionIcon, { backgroundColor: "#FFF3E0" }]}
-          >
-            <Ionicons name="wallet" size={24} color="#FF9800" />
-          </View>
-          <Text style={styles.quickActionText}>Earnings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => navigation.navigate("Profile")}
-        >
-          <View
-            style={[styles.quickActionIcon, { backgroundColor: "#F3E5F5" }]}
-          >
-            <Ionicons name="person" size={24} color="#9C27B0" />
-          </View>
-          <Text style={styles.quickActionText}>Profile</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickActionTouchable}
+              onPress={action.onPress}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={["#FFFFFF", "#FAFAFA"] as const}
+                style={styles.quickActionGradient}
+              >
+                <View
+                  style={[
+                    styles.quickActionIconContainer,
+                    { backgroundColor: action.bgColor },
+                  ]}
+                >
+                  <Ionicons
+                    name={action.icon as any}
+                    size={28}
+                    color={action.color}
+                  />
+                </View>
+                <Text style={styles.quickActionTitle}>{action.title}</Text>
+                {action.count !== undefined && action.count > 0 && (
+                  <Animated.View
+                    style={[
+                      styles.quickActionBadge,
+                      { transform: [{ scale: pulseAnim }] },
+                    ]}
+                  >
+                    <Text style={styles.quickActionBadgeText}>
+                      {action.count}
+                    </Text>
+                  </Animated.View>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+        ))}
       </View>
-    </Animated.View>
+    </View>
   );
 
-  const renderStatsCards = () => (
-    <Animated.View
-      style={[
-        styles.statsContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: cardScale }, { translateY: slideAnim }],
-        },
-      ]}
-    >
-      <Text style={styles.sectionTitle}>Today's Performance</Text>
-      <View style={styles.statsGrid}>
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="today" size={24} color="#2196F3" />
-            </View>
-            <Text style={styles.statValue}>{stats.today_orders}</Text>
-            <Text style={styles.statLabel}>Today's Orders</Text>
-          </Card.Content>
-        </Card>
+  const renderPerformanceCards = () => (
+    <View style={styles.performanceSection}>
+      <Animated.Text
+        style={[
+          styles.sectionTitle,
+          {
+            opacity: cardAnimations[4],
+            transform: [{ translateY: slideAnimations[1] }],
+          },
+        ]}
+      >
+        Todays Performance
+      </Animated.Text>
 
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="checkmark-done" size={24} color="#4CAF50" />
-            </View>
-            <Text style={styles.statValue}>{stats.completed_orders}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="speedometer" size={24} color="#FF9800" />
-            </View>
-            <Text style={styles.statValue}>
-              {Math.round(stats.completion_rate || 0)}%
-            </Text>
-            <Text style={styles.statLabel}>Success Rate</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="time" size={24} color="#9C27B0" />
-            </View>
-            <Text style={styles.statValue}>
-              {Math.round(stats.average_delivery_time || 0)}m
-            </Text>
-            <Text style={styles.statLabel}>Avg. Time</Text>
-          </Card.Content>
-        </Card>
+      <View style={styles.performanceGrid}>
+        {[
+          {
+            icon: "today-outline",
+            value: stats.today_orders,
+            label: "Today's Orders",
+            color: ColorPalette.info[500],
+            gradient: [ColorPalette.info[100], ColorPalette.info[50]] as const,
+          },
+          {
+            icon: "checkmark-done-outline",
+            value: stats.completed_orders,
+            label: "Completed",
+            color: ColorPalette.success[500],
+            gradient: [
+              ColorPalette.success[100],
+              ColorPalette.success[50],
+            ] as const,
+          },
+          {
+            icon: "speedometer-outline",
+            value: `${Math.round(stats.completion_rate || 0)}%`,
+            label: "Success Rate",
+            color: ColorPalette.accent[500],
+            gradient: [
+              ColorPalette.accent[100],
+              ColorPalette.accent[50],
+            ] as const,
+          },
+          {
+            icon: "time-outline",
+            value: `${Math.round(stats.average_delivery_time || 0)}m`,
+            label: "Avg. Time",
+            color: ColorPalette.secondary[500],
+            gradient: [
+              ColorPalette.secondary[100],
+              ColorPalette.secondary[50],
+            ] as const,
+          },
+        ].map((stat, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.performanceCard,
+              {
+                opacity: cardAnimations[4],
+                transform: [
+                  { scale: cardAnimations[4] },
+                  { translateY: slideAnimations[1] },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={stat.gradient}
+              style={styles.performanceCardGradient}
+            >
+              <View style={styles.performanceCardContent}>
+                <Ionicons
+                  name={stat.icon as any}
+                  size={32}
+                  color={stat.color}
+                />
+                <Text style={styles.performanceValue}>{stat.value}</Text>
+                <Text style={styles.performanceLabel}>{stat.label}</Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        ))}
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderActiveOrders = () => {
     if (activeOrders.length === 0) return null;
 
     return (
-      <Animated.View
-        style={[
-          styles.activeOrdersContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
+      <View style={styles.activeOrdersSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Active Orders</Text>
+          <Animated.Text
+            style={[
+              styles.sectionTitle,
+              {
+                opacity: cardAnimations[5],
+                transform: [{ translateY: slideAnimations[2] }],
+              },
+            ]}
+          >
+            Active Orders
+          </Animated.Text>
           <TouchableOpacity
             onPress={() => navigation.navigate("AcceptedOrders")}
           >
-            <Text style={styles.sectionAction}>View All</Text>
+            <Text style={styles.sectionAction}>View All →</Text>
           </TouchableOpacity>
         </View>
 
-        {activeOrders.slice(0, 2).map((order) => (
-          <TouchableOpacity
+        {activeOrders.slice(0, 2).map((order, index) => (
+          <Animated.View
             key={order.id}
-            style={styles.orderCard}
-            onPress={() =>
-              navigation.navigate("OrderDetails", { orderId: order.id })
-            }
+            style={[
+              styles.orderCard,
+              {
+                opacity: cardAnimations[5],
+                transform: [
+                  { translateY: slideAnimations[2] },
+                  { scale: cardAnimations[5] },
+                ],
+              },
+            ]}
           >
-            <Card style={styles.card}>
-              <Card.Content style={styles.orderCardContent}>
-                <View style={styles.orderHeader}>
-                  <Text style={styles.orderNumber}>#{order.order_number}</Text>
-                  <Badge
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(order.status) },
-                    ]}
-                  >
-                    {order.status.toUpperCase()}
-                  </Badge>
-                </View>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("OrderDetails", { orderId: order.id })
+              }
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={["#FFFFFF", "#FAFAFA"] as const}
+                style={styles.orderCardGradient}
+              >
+                <View style={styles.orderCardContent}>
+                  <View style={styles.orderHeader}>
+                    <Text style={styles.orderNumber}>
+                      #{order.order_number}
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: getStatusColor(order.status) },
+                      ]}
+                    >
+                      <Text style={styles.statusBadgeText}>
+                        {order.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
 
-                <View style={styles.orderDetails}>
-                  <View style={styles.orderDetailRow}>
-                    <Ionicons name="person" size={16} color="#666" />
-                    <Text style={styles.orderDetailText}>
-                      {order.student?.full_name}
-                    </Text>
+                  <View style={styles.orderDetails}>
+                    <View style={styles.orderDetailRow}>
+                      <Ionicons
+                        name="person-outline"
+                        size={16}
+                        color={ColorPalette.neutral[600]}
+                      />
+                      <Text style={styles.orderDetailText}>
+                        {order.student?.full_name}
+                      </Text>
+                    </View>
+                    <View style={styles.orderDetailRow}>
+                      <Ionicons
+                        name="location-outline"
+                        size={16}
+                        color={ColorPalette.neutral[600]}
+                      />
+                      <Text style={styles.orderDetailText} numberOfLines={1}>
+                        {order.delivery_address}
+                      </Text>
+                    </View>
+                    <View style={styles.orderDetailRow}>
+                      <Ionicons
+                        name="cash-outline"
+                        size={16}
+                        color={ColorPalette.neutral[600]}
+                      />
+                      <Text
+                        style={[styles.orderDetailText, styles.orderAmount]}
+                      >
+                        {formatCurrency(order.total_amount)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.orderDetailRow}>
-                    <Ionicons name="location" size={16} color="#666" />
-                    <Text style={styles.orderDetailText} numberOfLines={1}>
-                      {order.delivery_address}
-                    </Text>
-                  </View>
-                  <View style={styles.orderDetailRow}>
-                    <Ionicons name="cash" size={16} color="#666" />
-                    <Text style={styles.orderDetailText}>
-                      {formatCurrency(order.total_amount)}
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={styles.orderActions}>
                   {order.status === "accepted" && (
                     <TouchableOpacity
-                      style={[
-                        styles.orderActionButton,
-                        styles.startShoppingButton,
-                      ]}
+                      style={[styles.orderActionButton, styles.primaryButton]}
                       onPress={() =>
                         navigation.navigate("ShoppingList", {
                           orderId: order.id,
                         })
                       }
                     >
+                      <Ionicons name="bag-outline" size={18} color="#FFFFFF" />
                       <Text style={styles.orderActionButtonText}>
                         Start Shopping
                       </Text>
                     </TouchableOpacity>
                   )}
+
                   {order.status === "shopping" && (
                     <TouchableOpacity
-                      style={[
-                        styles.orderActionButton,
-                        styles.continueShoppingButton,
-                      ]}
+                      style={[styles.orderActionButton, styles.accentButton]}
                       onPress={() =>
                         navigation.navigate("ShoppingList", {
                           orderId: order.id,
                         })
                       }
                     >
+                      <Ionicons
+                        name="bag-check-outline"
+                        size={18}
+                        color="#FFFFFF"
+                      />
                       <Text style={styles.orderActionButtonText}>
                         Continue Shopping
                       </Text>
                     </TouchableOpacity>
                   )}
+
                   {order.status === "delivering" && (
                     <TouchableOpacity
-                      style={[styles.orderActionButton, styles.deliveryButton]}
+                      style={[styles.orderActionButton, styles.successButton]}
                       onPress={() =>
                         navigation.navigate("DeliveryNavigation", {
                           orderId: order.id,
                         })
                       }
                     >
+                      <Ionicons
+                        name="navigate-outline"
+                        size={18}
+                        color="#FFFFFF"
+                      />
                       <Text style={styles.orderActionButtonText}>
                         Continue Delivery
                       </Text>
                     </TouchableOpacity>
                   )}
                 </View>
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
-      </Animated.View>
+      </View>
     );
   };
+
+  const renderFloatingActionButton = () => (
+    <Animated.View
+      style={[
+        styles.fab,
+        {
+          opacity: floatingActionAnim,
+          transform: [{ scale: floatingActionAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.fabTouchable}
+        onPress={() => navigation.navigate("AvailableOrders")}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={
+            [ColorPalette.primary[400], ColorPalette.primary[600]] as const
+          }
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={ColorPalette.primary[500]}
+        translucent
       />
-      <ScrollView
+
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
             colors={[ColorPalette.primary[500]]}
             tintColor={ColorPalette.primary[500]}
+            progressViewOffset={HERO_HEIGHT / 2}
           />
         }
-        showsVerticalScrollIndicator={false}
       >
-        {renderHeader()}
-        {renderQuickActions()}
-        {renderStatsCards()}
-        {renderActiveOrders()}
-      </ScrollView>
+        {renderHeroSection()}
+
+        <View style={styles.contentContainer}>
+          {renderQuickActions()}
+          {renderPerformanceCards()}
+          {renderActiveOrders()}
+        </View>
+      </Animated.ScrollView>
+
+      {renderFloatingActionButton()}
     </SafeAreaView>
   );
 };
@@ -517,250 +725,363 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ColorPalette.pure.white,
+    backgroundColor: ColorPalette.neutral[50],
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
-  header: {
-    height: height * 0.3,
-    marginBottom: -40,
-  },
-  headerGradient: {
-    flex: 1,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+
+  // Hero Section
+  heroContainer: {
+    height: HERO_HEIGHT,
     overflow: "hidden",
   },
-  headerContent: {
+  heroGradient: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    justifyContent: "space-between",
   },
-  greetingSection: {
-    marginTop: spacing.md,
+  heroBackground: {
+    flex: 1,
+    position: "relative",
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 4,
+  decorativeElements: {
+    ...StyleSheet.absoluteFillObject,
   },
-  subGreeting: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-  },
-  headerStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+  floatingOrb: {
+    position: "absolute",
+    borderRadius: 50,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginTop: spacing.lg,
   },
-  headerStatItem: {
-    alignItems: "center",
-  },
-  headerStatValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
-  },
-  headerStatLabel: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginTop: 4,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  headerDecoration: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 200,
-    height: 200,
-  },
-  decorativeCircle: {
-    position: "absolute",
+  orb1: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     top: -20,
     right: -20,
   },
-  decorativeCircleSmall: {
-    position: "absolute",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    top: 80,
-    right: 30,
+  orb2: {
+    width: 80,
+    height: 80,
+    top: HERO_HEIGHT * 0.3,
+    left: -30,
   },
-  quickActionsContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+  orb3: {
+    width: 40,
+    height: 40,
+    top: HERO_HEIGHT * 0.7,
+    right: width * 0.3,
   },
-  sectionTitle: {
+  heroContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    justifyContent: "space-between",
+  },
+  greetingSection: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  greeting: {
+    fontSize: 18,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: "400",
+    marginBottom: 4,
+  },
+  userName: {
+    fontSize: 32,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "400",
+  },
+  heroStatsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 24,
+  },
+  heroStatCard: {
+    flex: 1,
+    marginHorizontal: 6,
+  },
+  blurCard: {
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  heroStatValue: {
     fontSize: 20,
-    fontWeight: "bold",
+    color: "#FFFFFF",
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  heroStatLabel: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+    marginTop: 4,
+  },
+
+  // Content Container
+  contentContainer: {
+    backgroundColor: ColorPalette.neutral[50],
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingTop: 24,
+    minHeight: height * 0.7,
+  },
+
+  // Section Headers
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: "700",
     color: ColorPalette.neutral[900],
-    marginBottom: spacing.md,
+    marginBottom: 16,
+    paddingHorizontal: 24,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    paddingHorizontal: 24,
+    marginBottom: 16,
   },
   sectionAction: {
-    fontSize: 14,
-    color: ColorPalette.primary[500],
+    fontSize: 16,
+    color: ColorPalette.primary[600],
     fontWeight: "600",
   },
-  quickActions: {
+
+  // Quick Actions
+  quickActionsSection: {
+    marginBottom: 32,
+  },
+  quickActionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    paddingHorizontal: 16,
     justifyContent: "space-between",
   },
   quickActionCard: {
     width: CARD_WIDTH,
-    backgroundColor: "#ffffff",
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    alignItems: "center",
-    marginBottom: spacing.md,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginBottom: 16,
+    marginHorizontal: 4,
   },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  quickActionTouchable: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickActionGradient: {
+    padding: 20,
+    alignItems: "center",
+    minHeight: 140,
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: spacing.sm,
+    position: "relative",
   },
-  quickActionText: {
+  quickActionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  quickActionTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: ColorPalette.neutral[900],
+    color: ColorPalette.neutral[800],
     textAlign: "center",
+    lineHeight: 20,
   },
   quickActionBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: ColorPalette.secondary[500],
+    top: 12,
+    right: 12,
+    backgroundColor: ColorPalette.error[500],
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
   },
-  statsContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+  quickActionBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
-  statsGrid: {
+
+  // Performance Section
+  performanceSection: {
+    marginBottom: 32,
+  },
+  performanceGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    paddingHorizontal: 16,
     justifyContent: "space-between",
   },
-  statCard: {
+  performanceCard: {
     width: CARD_WIDTH,
-    marginBottom: spacing.md,
-    elevation: 2,
+    marginBottom: 16,
+    marginHorizontal: 4,
   },
-  statCardContent: {
+  performanceCardGradient: {
+    borderRadius: 20,
+    padding: 20,
     alignItems: "center",
-    paddingVertical: spacing.lg,
+    shadowColor: "rgba(0, 0, 0, 0.08)",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  statIconContainer: {
-    marginBottom: spacing.sm,
+  performanceCardContent: {
+    alignItems: "center",
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
+  performanceValue: {
+    fontSize: 28,
+    fontWeight: "800",
     color: ColorPalette.neutral[900],
+    marginTop: 12,
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
+  performanceLabel: {
+    fontSize: 14,
+    fontWeight: "500",
     color: ColorPalette.neutral[600],
     textAlign: "center",
   },
-  activeOrdersContainer: {
-    paddingHorizontal: spacing.lg,
+
+  // Active Orders
+  activeOrdersSection: {
+    marginBottom: 32,
   },
   orderCard: {
-    marginBottom: spacing.md,
+    marginHorizontal: 24,
+    marginBottom: 16,
   },
-  card: {
-    elevation: 3,
-    borderRadius: borderRadius.lg,
+  orderCardGradient: {
+    borderRadius: 20,
+    shadowColor: "rgba(0, 0, 0, 0.08)",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   orderCardContent: {
-    padding: spacing.md,
+    padding: 20,
   },
   orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   orderNumber: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "700",
     color: ColorPalette.neutral[900],
   },
   statusBadge: {
-    fontSize: 10,
-    fontWeight: "bold",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   orderDetails: {
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   orderDetailRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacing.xs,
+    marginBottom: 8,
   },
   orderDetailText: {
     fontSize: 14,
     color: ColorPalette.neutral[600],
-    marginLeft: spacing.sm,
+    marginLeft: 8,
     flex: 1,
+    fontWeight: "500",
   },
-  orderActions: {
-    marginTop: spacing.sm,
+  orderAmount: {
+    fontWeight: "700",
+    color: ColorPalette.neutral[900],
   },
   orderActionButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 12,
   },
-  startShoppingButton: {
+  primaryButton: {
     backgroundColor: ColorPalette.primary[500],
   },
-  continueShoppingButton: {
-    backgroundColor: "#9C27B0",
+  accentButton: {
+    backgroundColor: ColorPalette.accent[500],
   },
-  deliveryButton: {
-    backgroundColor: "#FF5722",
+  successButton: {
+    backgroundColor: ColorPalette.success[500],
   },
   orderActionButtonText: {
-    color: "#ffffff",
+    color: "#FFFFFF",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 16,
+    marginLeft: 8,
+  },
+
+  // Floating Action Button
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: ColorPalette.primary[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  fabTouchable: {
+    flex: 1,
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  fabGradient: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

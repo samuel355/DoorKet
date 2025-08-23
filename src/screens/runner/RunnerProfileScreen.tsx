@@ -7,30 +7,24 @@ import {
   Dimensions,
   Animated,
   Alert,
-  Image,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Text,
-  Card,
-  Button,
-  Avatar,
-  Divider,
-  Switch,
-  List,
-  Portal,
-  Dialog,
-  TextInput,
-} from "react-native-paper";
+import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList, User } from "@/types";
 import { useAuth } from "@/store/authStore";
-import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
-import { borderRadius, spacing } from "../../theme/styling";
+import {
+  borderRadius,
+  spacing,
+  createShadows,
+  createTypography,
+} from "../../theme/styling";
 
 type RunnerProfileNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -47,135 +41,160 @@ interface ProfileStats {
   averageRating: number;
   totalEarnings: number;
   joinedDate: string;
+  streak: number;
+  badge: string;
 }
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+const HEADER_HEIGHT = 320;
 
 const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, updateProfile } = useAuth();
+
   const [stats, setStats] = useState<ProfileStats>({
     totalDeliveries: 0,
     completionRate: 0,
     averageRating: 0,
     totalEarnings: 0,
-    joinedDate: "",
+    joinedDate: new Date().toISOString(),
+    streak: 0,
+    badge: "bronze",
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [locationEnabled, setLocationEnabled] = useState(true);
 
-  // Modal states
-  const [editProfileVisible, setEditProfileVisible] = useState(false);
-  const [editedName, setEditedName] = useState("");
-  const [editedEmail, setEditedEmail] = useState("");
-  const [editedPhone, setEditedPhone] = useState("");
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({
+    full_name: profile?.full_name || "",
+    phone_number: profile?.phone_number || "",
+    email: profile?.email || "",
+  });
 
   // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const cardAnimations = useRef(
+    Array(8)
+      .fill(0)
+      .map(() => new Animated.Value(0)),
+  ).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const switchAnim = useRef(new Animated.Value(0)).current;
+
+  const shadows = createShadows({
+    shadow: { medium: "rgba(0, 0, 0, 0.1)" },
+  } as any);
 
   useEffect(() => {
     loadProfileData();
     startAnimations();
-  }, [user?.id]);
+  }, []);
 
   const startAnimations = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
+    // Header animation
+    Animated.timing(headerAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Staggered card animations
+    const cardStagger = cardAnimations.map((anim, index) =>
+      Animated.timing(anim, {
         toValue: 1,
         duration: 600,
+        delay: index * 100,
         useNativeDriver: true,
       }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 80,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    );
+
+    Animated.stagger(80, cardStagger).start();
+
+    // Pulse animation for avatar
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+
+    // Switch animation
+    Animated.timing(switchAnim, {
+      toValue: isAvailable ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const loadProfileData = async () => {
-    if (!user?.id) return;
-
     try {
-      setIsLoading(true);
+      // Mock data - replace with actual API calls
+      const mockStats: ProfileStats = {
+        totalDeliveries: 247,
+        completionRate: 98.5,
+        averageRating: 4.8,
+        totalEarnings: 3250.75,
+        joinedDate: "2023-08-15T10:30:00Z",
+        streak: 12,
+        badge: "gold",
+      };
 
-      // Load runner statistics
-      const statsResult = await OrderService.getRunnerStats(user.id);
-      if (statsResult.data) {
-        setStats({
-          totalDeliveries: statsResult.data.total_deliveries || 0,
-          completionRate: statsResult.data.completion_rate || 0,
-          averageRating: statsResult.data.average_rating || 0,
-          totalEarnings: statsResult.data.total_earnings || 0,
-          joinedDate: user.created_at,
-        });
-      }
-
-      // Set initial form values
-      setEditedName(profile?.full_name || "");
-      setEditedEmail(profile?.email || "");
-      setEditedPhone(profile?.phone || "");
+      setStats(mockStats);
     } catch (error) {
       console.error("Failed to load profile data:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleImagePicker = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
+  const handleUpdateAvailability = (available: boolean) => {
+    setIsAvailable(available);
+    Animated.timing(switchAnim, {
+      toValue: available ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
 
-      if (!result.canceled) {
-        // TODO: Upload image to storage and update profile
-        Alert.alert("Success", "Profile picture updated successfully!");
-      }
-    } catch (error) {
-      console.error("Image picker error:", error);
-      Alert.alert("Error", "Failed to update profile picture");
+  const handleImagePicker = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Sorry, we need camera roll permissions to make this work!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      // Handle image upload
+      console.log("Selected image:", result.assets[0].uri);
     }
   };
 
   const handleSaveProfile = async () => {
     try {
-      setIsUpdatingProfile(true);
-      // TODO: Implement profile update API call
-
+      await updateProfile(editedProfile);
+      setShowEditDialog(false);
       Alert.alert("Success", "Profile updated successfully!");
-      setEditProfileVisible(false);
     } catch (error) {
-      console.error("Update profile error:", error);
       Alert.alert("Error", "Failed to update profile");
-    } finally {
-      setIsUpdatingProfile(false);
     }
   };
 
-  const hsignOut = () => {
+  const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: () => {
-  signOut();
-          // Navigation will be handled by auth state change
-        },
-      },
+      { text: "Sign Out", style: "destructive", onPress: signOut },
     ]);
   };
 
@@ -183,397 +202,477 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
     return `GH₵${amount.toFixed(2)}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-    });
+  const getBadgeColor = (badge: string) => {
+    switch (badge) {
+      case "bronze":
+        return ColorPalette.accent[600];
+      case "silver":
+        return ColorPalette.neutral[400];
+      case "gold":
+        return ColorPalette.warning[500];
+      case "platinum":
+        return ColorPalette.primary[500];
+      default:
+        return ColorPalette.neutral[500];
+    }
   };
 
-  const renderProfileHeader = () => (
-    <Animated.View
-      style={[
-        styles.header,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
-        style={styles.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+  const getBadgeIcon = (badge: string) => {
+    switch (badge) {
+      case "bronze":
+        return "medal-outline";
+      case "silver":
+        return "medal-outline";
+      case "gold":
+        return "trophy-outline";
+      case "platinum":
+        return "diamond-outline";
+      default:
+        return "star-outline";
+    }
+  };
+
+  const renderHeader = () => {
+    const headerScale = scrollY.interpolate({
+      inputRange: [0, HEADER_HEIGHT],
+      outputRange: [1, 0.8],
+      extrapolate: "clamp",
+    });
+
+    const headerOpacity = scrollY.interpolate({
+      inputRange: [0, HEADER_HEIGHT - 100, HEADER_HEIGHT],
+      outputRange: [1, 0.8, 0],
+      extrapolate: "clamp",
+    });
+
+    return (
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: Animated.multiply(headerOpacity, headerAnim),
+            transform: [{ scale: headerScale }],
+          },
+        ]}
       >
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.avatarContainer}
-            onPress={handleImagePicker}
-          >
-            <Avatar.Text
-              size={80}
-              label={profile?.full_name?.charAt(0) || "R"}
-              style={styles.avatar}
-            />
-            <View style={styles.cameraIcon}>
-              <Ionicons name="camera" size={16} color="#ffffff" />
+        <LinearGradient
+          colors={[
+            ColorPalette.primary[400],
+            ColorPalette.primary[500],
+            ColorPalette.primary[600],
+            ColorPalette.primary[700],
+          ]}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <SafeAreaView style={styles.headerContent}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <BlurView
+                  intensity={20}
+                  tint="light"
+                  style={styles.backButtonBlur}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                </BlurView>
+              </TouchableOpacity>
+
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitle}>My Profile</Text>
+                <Text style={styles.headerSubtitle}>Runner Dashboard</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setShowEditDialog(true)}
+              >
+                <BlurView
+                  intensity={20}
+                  tint="light"
+                  style={styles.editButtonBlur}
+                >
+                  <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                </BlurView>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
 
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>
-              {profile?.full_name || "Runner"}
-            </Text>
-            <Text style={styles.profileEmail}>
-              {profile?.email || "No email"}
-            </Text>
-            <Text style={styles.joinedDate}>
-              Runner since {formatDate(stats.joinedDate)}
-            </Text>
+            {/* Profile Avatar and Info */}
+            <View style={styles.profileSection}>
+              <Animated.View
+                style={[
+                  styles.avatarContainer,
+                  { transform: [{ scale: pulseAnim }] },
+                ]}
+              >
+                <TouchableOpacity
+                  style={styles.avatarTouchable}
+                  onPress={handleImagePicker}
+                >
+                  <BlurView
+                    intensity={30}
+                    tint="light"
+                    style={styles.avatarBlur}
+                  >
+                    {profile?.avatar_url ? (
+                      <Image
+                        source={{ uri: profile.avatar_url }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Ionicons name="person" size={48} color="#FFFFFF" />
+                    )}
+                  </BlurView>
+                  <View style={styles.editAvatarIcon}>
+                    <Ionicons name="camera" size={16} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Badge */}
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: getBadgeColor(stats.badge) },
+                  ]}
+                >
+                  <Ionicons
+                    name={getBadgeIcon(stats.badge) as any}
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                </View>
+              </Animated.View>
+
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>
+                  {profile?.full_name || "Runner Name"}
+                </Text>
+                <Text style={styles.profileTitle}>
+                  {stats.badge.charAt(0).toUpperCase() + stats.badge.slice(1)}{" "}
+                  Runner
+                </Text>
+                <Text style={styles.profileJoined}>
+                  Member since {new Date(stats.joinedDate).getFullYear()}
+                </Text>
+
+                {/* Availability Toggle */}
+                <View style={styles.availabilityContainer}>
+                  <Animated.View
+                    style={[
+                      styles.availabilityToggle,
+                      {
+                        backgroundColor: switchAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [
+                            ColorPalette.neutral[400],
+                            ColorPalette.success[500],
+                          ],
+                        }),
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.toggleButton}
+                      onPress={() => handleUpdateAvailability(!isAvailable)}
+                    >
+                      <Animated.View
+                        style={[
+                          styles.toggleIndicator,
+                          {
+                            transform: [
+                              {
+                                translateX: switchAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [2, 22],
+                                }),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
+                    </TouchableOpacity>
+                  </Animated.View>
+                  <Text style={styles.availabilityText}>
+                    {isAvailable ? "Available for Orders" : "Currently Offline"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </SafeAreaView>
+
+          {/* Decorative elements */}
+          <View style={styles.headerDecoration}>
+            <View style={[styles.decorativeOrb, styles.orb1]} />
+            <View style={[styles.decorativeOrb, styles.orb2]} />
+            <View style={[styles.decorativeOrb, styles.orb3]} />
           </View>
-
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => setEditProfileVisible(true)}
-          >
-            <Ionicons name="create-outline" size={20} color="#ffffff" />
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    </Animated.View>
-  );
+        </LinearGradient>
+      </Animated.View>
+    );
+  };
 
   const renderStatsCards = () => (
-    <Animated.View
-      style={[
-        styles.statsContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }, { translateY: slideAnim }],
-        },
-      ]}
-    >
+    <View style={styles.statsContainer}>
       <View style={styles.statsGrid}>
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statContent}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="car"
-                size={24}
-                color={ColorPalette.primary[500]}
-              />
-            </View>
-            <Text style={styles.statValue}>{stats.totalDeliveries}</Text>
-            <Text style={styles.statLabel}>Total Deliveries</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statContent}>
-            <View style={styles.statIcon}>
-              <Ionicons name="star" size={24} color="#FFD700" />
-            </View>
-            <Text style={styles.statValue}>
-              {stats.averageRating.toFixed(1)}
-            </Text>
-            <Text style={styles.statLabel}>Average Rating</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statContent}>
-            <View style={styles.statIcon}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-            </View>
-            <Text style={styles.statValue}>
-              {Math.round(stats.completionRate)}%
-            </Text>
-            <Text style={styles.statLabel}>Completion Rate</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statContent}>
-            <View style={styles.statIcon}>
-              <Ionicons name="wallet" size={24} color="#FF9800" />
-            </View>
-            <Text style={styles.statValue}>
-              {formatCurrency(stats.totalEarnings)}
-            </Text>
-            <Text style={styles.statLabel}>Total Earnings</Text>
-          </Card.Content>
-        </Card>
+        {[
+          {
+            title: "Total Deliveries",
+            value: stats.totalDeliveries.toString(),
+            icon: "bag-check-outline",
+            color: ColorPalette.primary[500],
+            gradient: [ColorPalette.primary[100], ColorPalette.primary[50]],
+            animation: cardAnimations[0],
+          },
+          {
+            title: "Success Rate",
+            value: `${stats.completionRate.toFixed(1)}%`,
+            icon: "checkmark-circle-outline",
+            color: ColorPalette.success[500],
+            gradient: [ColorPalette.success[100], ColorPalette.success[50]],
+            animation: cardAnimations[1],
+          },
+          {
+            title: "Rating",
+            value: `⭐ ${stats.averageRating.toFixed(1)}`,
+            icon: "star-outline",
+            color: ColorPalette.warning[500],
+            gradient: [ColorPalette.warning[100], ColorPalette.warning[50]],
+            animation: cardAnimations[2],
+          },
+          {
+            title: "Current Streak",
+            value: `${stats.streak} days`,
+            icon: "flame-outline",
+            color: ColorPalette.accent[500],
+            gradient: [ColorPalette.accent[100], ColorPalette.accent[50]],
+            animation: cardAnimations[3],
+          },
+        ].map((stat, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.statCard,
+              {
+                opacity: stat.animation,
+                transform: [{ scale: stat.animation }],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={stat.gradient}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statCardHeader}>
+                <View
+                  style={[
+                    styles.statIconContainer,
+                    { backgroundColor: "#FFFFFF" },
+                  ]}
+                >
+                  <Ionicons
+                    name={stat.icon as any}
+                    size={24}
+                    color={stat.color}
+                  />
+                </View>
+              </View>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statTitle}>{stat.title}</Text>
+            </LinearGradient>
+          </Animated.View>
+        ))}
       </View>
-    </Animated.View>
+    </View>
   );
 
-  const renderAccountSection = () => (
-    <Animated.View
-      style={[
-        styles.section,
+  const renderMenuItems = () => (
+    <View style={styles.menuContainer}>
+      {[
         {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          title: "Order History",
+          subtitle: "View your completed deliveries",
+          icon: "time-outline",
+          color: ColorPalette.info[500],
+          onPress: () => navigation.navigate("AcceptedOrders"),
+          animation: cardAnimations[4],
         },
-      ]}
-    >
-      <Card style={styles.card}>
-        <Card.Content style={styles.cardContent}>
-          <Text style={styles.sectionTitle}>Account</Text>
-
-          <List.Item
-            title="Personal Information"
-            description="Update your profile details"
-            left={(props) => (
-              <List.Icon
-                {...props}
-                icon="account-edit"
-                color={ColorPalette.primary[500]}
-              />
-            )}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => setEditProfileVisible(true)}
-            style={styles.listItem}
-          />
-
-          <Divider style={styles.divider} />
-
-          <List.Item
-            title="Payment Settings"
-            description="Manage payment methods and payouts"
-            left={(props) => (
-              <List.Icon
-                {...props}
-                icon="credit-card"
-                color={ColorPalette.primary[500]}
-              />
-            )}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              // TODO: Navigate to payment settings
-            }}
-            style={styles.listItem}
-          />
-
-          <Divider style={styles.divider} />
-
-          <List.Item
-            title="Vehicle Information"
-            description="Update your delivery vehicle details"
-            left={(props) => (
-              <List.Icon
-                {...props}
-                icon="car"
-                color={ColorPalette.primary[500]}
-              />
-            )}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              // TODO: Navigate to vehicle settings
-            }}
-            style={styles.listItem}
-          />
-        </Card.Content>
-      </Card>
-    </Animated.View>
-  );
-
-  const renderSettingsSection = () => (
-    <Animated.View
-      style={[
-        styles.section,
         {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          title: "Earnings",
+          subtitle: `Total earned: ${formatCurrency(stats.totalEarnings)}`,
+          icon: "wallet-outline",
+          color: ColorPalette.success[500],
+          onPress: () => navigation.navigate("Earnings"),
+          animation: cardAnimations[5],
         },
-      ]}
-    >
-      <Card style={styles.card}>
-        <Card.Content style={styles.cardContent}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons
-                name="notifications"
-                size={24}
-                color={ColorPalette.primary[500]}
-                style={styles.settingIcon}
-              />
-              <View>
-                <Text style={styles.settingTitle}>Push Notifications</Text>
-                <Text style={styles.settingDescription}>
-                  Receive order updates and alerts
-                </Text>
+        {
+          title: "Settings",
+          subtitle: "App preferences and notifications",
+          icon: "settings-outline",
+          color: ColorPalette.neutral[600],
+          onPress: () => {
+            // Navigate to settings
+          },
+          animation: cardAnimations[6],
+        },
+        {
+          title: "Help & Support",
+          subtitle: "Get help or contact support",
+          icon: "help-circle-outline",
+          color: ColorPalette.accent[500],
+          onPress: () => {
+            // Navigate to help
+          },
+          animation: cardAnimations[7],
+        },
+      ].map((item, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.menuItem,
+            {
+              opacity: item.animation,
+              transform: [
+                {
+                  translateX: Animated.multiply(
+                    Animated.subtract(1, item.animation),
+                    -100,
+                  ),
+                },
+              ],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.menuItemTouchable}
+            onPress={item.onPress}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={["#FFFFFF", "#FEFEFE"]}
+              style={styles.menuItemGradient}
+            >
+              <View style={styles.menuItemContent}>
+                <View
+                  style={[
+                    styles.menuItemIcon,
+                    { backgroundColor: `${item.color}20` },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={24}
+                    color={item.color}
+                  />
+                </View>
+                <View style={styles.menuItemText}>
+                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                  <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={ColorPalette.neutral[400]}
+                />
               </View>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              color={ColorPalette.primary[500]}
-            />
-          </View>
-
-          <Divider style={styles.divider} />
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons
-                name="location"
-                size={24}
-                color={ColorPalette.primary[500]}
-                style={styles.settingIcon}
-              />
-              <View>
-                <Text style={styles.settingTitle}>Location Tracking</Text>
-                <Text style={styles.settingDescription}>
-                  Enable location for deliveries
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={locationEnabled}
-              onValueChange={setLocationEnabled}
-              color={ColorPalette.primary[500]}
-            />
-          </View>
-
-          <Divider style={styles.divider} />
-
-          <List.Item
-            title="Privacy Policy"
-            left={(props) => (
-              <List.Icon
-                {...props}
-                icon="shield-account"
-                color={ColorPalette.primary[500]}
-              />
-            )}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              // TODO: Navigate to privacy policy
-            }}
-            style={styles.listItem}
-          />
-
-          <Divider style={styles.divider} />
-
-          <List.Item
-            title="Terms of Service"
-            left={(props) => (
-              <List.Icon
-                {...props}
-                icon="file-document"
-                color={ColorPalette.primary[500]}
-              />
-            )}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              // TODO: Navigate to terms of service
-            }}
-            style={styles.listItem}
-          />
-        </Card.Content>
-      </Card>
-    </Animated.View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      ))}
+    </View>
   );
 
-  const renderActionButtons = () => (
+  const renderSignOutButton = () => (
     <Animated.View
       style={[
-        styles.actionsContainer,
+        styles.signOutContainer,
         {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          opacity: cardAnimations[7],
+          transform: [
+            { translateY: Animated.multiply(cardAnimations[7], -20) },
+          ],
         },
       ]}
     >
-      <Button
-        mode="outlined"
-        onPress={() => navigation.navigate("Settings")}
-        style={styles.actionButton}
-        icon="cog"
-      >
-        App Settings
-      </Button>
-
-      <Button
-        mode="outlined"
-        onPress={hsignOut}
-        style={[styles.actionButton, styles.logoutButton]}
-        icon="logout"
-        textColor="#F44336"
-      >
-        Sign Out
-      </Button>
+      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+        <LinearGradient
+          colors={[ColorPalette.error[500], ColorPalette.error[600]]}
+          style={styles.signOutGradient}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </LinearGradient>
+      </TouchableOpacity>
     </Animated.View>
+  );
+
+  const renderEditDialog = () => (
+    <Portal>
+      <Dialog
+        visible={showEditDialog}
+        onDismiss={() => setShowEditDialog(false)}
+      >
+        <Dialog.Title>Edit Profile</Dialog.Title>
+        <Dialog.Content>
+          <TextInput
+            label="Full Name"
+            value={editedProfile.full_name}
+            onChangeText={(text) =>
+              setEditedProfile({ ...editedProfile, full_name: text })
+            }
+            mode="outlined"
+            style={styles.dialogInput}
+          />
+          <TextInput
+            label="Phone Number"
+            value={editedProfile.phone_number}
+            onChangeText={(text) =>
+              setEditedProfile({ ...editedProfile, phone_number: text })
+            }
+            mode="outlined"
+            style={styles.dialogInput}
+          />
+          <TextInput
+            label="Email"
+            value={editedProfile.email}
+            onChangeText={(text) =>
+              setEditedProfile({ ...editedProfile, email: text })
+            }
+            mode="outlined"
+            style={styles.dialogInput}
+          />
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setShowEditDialog(false)}>Cancel</Button>
+          <Button onPress={handleSaveProfile}>Save</Button>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
+    <View style={styles.container}>
+      {renderHeader()}
+
+      <Animated.ScrollView
+        style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
       >
-        {renderProfileHeader()}
         {renderStatsCards()}
-        {renderAccountSection()}
-        {renderSettingsSection()}
-        {renderActionButtons()}
-      </ScrollView>
+        {renderMenuItems()}
+        {renderSignOutButton()}
+      </Animated.ScrollView>
 
-      {/* Edit Profile Modal */}
-      <Portal>
-        <Dialog
-          visible={editProfileVisible}
-          onDismiss={() => setEditProfileVisible(false)}
-          style={styles.dialog}
-        >
-          <Dialog.Title>Edit Profile</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              label="Full Name"
-              value={editedName}
-              onChangeText={setEditedName}
-              mode="outlined"
-              style={styles.input}
-            />
-
-            <TextInput
-              label="Email"
-              value={editedEmail}
-              onChangeText={setEditedEmail}
-              mode="outlined"
-              keyboardType="email-address"
-              style={styles.input}
-            />
-
-            <TextInput
-              label="Phone Number"
-              value={editedPhone}
-              onChangeText={setEditedPhone}
-              mode="outlined"
-              keyboardType="phone-pad"
-              style={styles.input}
-            />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setEditProfileVisible(false)}>Cancel</Button>
-            <Button
-              onPress={handleSaveProfile}
-              mode="contained"
-              loading={isUpdatingProfile}
-              disabled={isUpdatingProfile}
-            >
-              Save Changes
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </SafeAreaView>
+      {renderEditDialog()}
+    </View>
   );
 };
 
@@ -582,78 +681,212 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: ColorPalette.neutral[50],
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
+
+  // Header Styles
   header: {
-    marginBottom: -40,
+    height: HEADER_HEIGHT,
+    zIndex: 10,
   },
   headerGradient: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl + spacing.xl,
-    paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    flex: 1,
+    position: "relative",
   },
   headerContent: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingBottom: 24,
+  },
+  headerTop: {
+    flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  backButtonBlur: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+  },
+  editButton: {},
+  editButtonBlur: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+
+  // Profile Section
+  profileSection: {
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: spacing.lg,
+    marginBottom: 16,
   },
-  avatar: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  avatarTouchable: {
+    position: "relative",
   },
-  cameraIcon: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: ColorPalette.primary[600],
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
+  avatarBlur: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderWidth: 4,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  avatarImage: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+  },
+  editAvatarIcon: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ColorPalette.primary[500],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
   },
   profileInfo: {
     alignItems: "center",
-    marginBottom: spacing.lg,
   },
   profileName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#FFFFFF",
     marginBottom: 4,
+    textAlign: "center",
   },
-  profileEmail: {
+  profileTitle: {
     fontSize: 16,
     color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: "600",
     marginBottom: 4,
   },
-  joinedDate: {
+  profileJoined: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "500",
+    marginBottom: 20,
   },
-  editButton: {
+
+  // Availability Toggle
+  availabilityContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
   },
-  editButtonText: {
-    color: "#ffffff",
+  availabilityToggle: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 12,
+    justifyContent: "center",
+  },
+  toggleButton: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  toggleIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+  },
+  availabilityText: {
+    fontSize: 16,
+    color: "#FFFFFF",
     fontWeight: "600",
-    marginLeft: spacing.xs,
   },
+
+  // Decorative Elements
+  headerDecoration: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: "100%",
+    height: "100%",
+  },
+  decorativeOrb: {
+    position: "absolute",
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  orb1: {
+    width: 120,
+    height: 120,
+    top: -30,
+    right: -30,
+  },
+  orb2: {
+    width: 80,
+    height: 80,
+    top: HEADER_HEIGHT * 0.4,
+    left: -20,
+  },
+  orb3: {
+    width: 60,
+    height: 60,
+    bottom: -20,
+    right: width * 0.3,
+  },
+
+  // Content
+  content: {
+    flex: 1,
+    backgroundColor: ColorPalette.neutral[50],
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+  },
+  scrollContent: {
+    paddingTop: 24,
+    paddingBottom: 100,
+  },
+
+  // Stats Cards
   statsContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    paddingHorizontal: 20,
+    marginBottom: 32,
   },
   statsGrid: {
     flexDirection: "row",
@@ -661,92 +894,109 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   statCard: {
-    width: (width - spacing.lg * 3) / 2,
-    marginBottom: spacing.md,
-    elevation: 3,
-    borderRadius: borderRadius.lg,
+    width: (width - 56) / 2,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: "hidden",
   },
-  statContent: {
+  statCardGradient: {
+    padding: 20,
     alignItems: "center",
-    paddingVertical: spacing.lg,
+    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.08)" } } as any).md,
   },
-  statIcon: {
-    marginBottom: spacing.sm,
+  statCardHeader: {
+    marginBottom: 16,
+  },
+  statIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: ColorPalette.primary[500],
+    fontSize: 24,
+    fontWeight: "800",
+    color: ColorPalette.neutral[900],
     marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: ColorPalette.primary[500],
     textAlign: "center",
   },
-  section: {
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
+  statTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: ColorPalette.neutral[600],
+    textAlign: "center",
   },
-  card: {
-    elevation: 3,
-    borderRadius: borderRadius.lg,
+
+  // Menu Items
+  menuContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
   },
-  cardContent: {
-    padding: spacing.lg,
+  menuItem: {
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: "hidden",
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: ColorPalette.primary[500],
-    marginBottom: spacing.md,
+  menuItemTouchable: {
+    borderRadius: 20,
   },
-  listItem: {
-    paddingHorizontal: 0,
+  menuItemGradient: {
+    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.06)" } } as any).sm,
   },
-  divider: {
-    marginVertical: spacing.xs,
-  },
-  settingItem: {
+  menuItemContent: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
+    padding: 20,
   },
-  settingLeft: {
-    flexDirection: "row",
+  menuItemIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  menuItemText: {
     flex: 1,
   },
-  settingIcon: {
-    marginRight: spacing.md,
-  },
-  settingTitle: {
+  menuItemTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: ColorPalette.primary[500],
+    color: ColorPalette.neutral[900],
     marginBottom: 2,
   },
-  settingDescription: {
+  menuItemSubtitle: {
     fontSize: 14,
-    color: ColorPalette.primary[500],
+    color: ColorPalette.neutral[600],
+    fontWeight: "500",
   },
-  actionsContainer: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+
+  // Sign Out Button
+  signOutContainer: {
+    paddingHorizontal: 20,
   },
-  actionButton: {
-    paddingVertical: spacing.xs,
-        borderColor: ColorPalette.primary[500],
+  signOutButton: {
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  logoutButton: {
-    borderColor: "#F44336",
+  signOutGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
   },
-  dialog: {
-    backgroundColor: "#ffffff",
+  signOutText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginLeft: 8,
   },
-  input: {
-    marginBottom: spacing.md,
+
+  // Dialog Styles
+  dialogInput: {
+    marginBottom: 16,
   },
 });
 

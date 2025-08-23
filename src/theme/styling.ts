@@ -12,7 +12,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   xs: {
-    shadowColor: theme.shadow.light,
+    shadowColor: theme.shadow?.light,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
     shadowRadius: 2,
@@ -20,7 +20,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   sm: {
-    shadowColor: theme.shadow.medium,
+    shadowColor: theme.shadow?.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 4,
@@ -28,7 +28,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   md: {
-    shadowColor: theme.shadow.medium,
+    shadowColor: theme.shadow?.medium,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 8,
@@ -36,7 +36,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   lg: {
-    shadowColor: theme.shadow.dark,
+    shadowColor: theme.shadow?.dark,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 16,
@@ -44,7 +44,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   xl: {
-    shadowColor: theme.shadow.dark,
+    shadowColor: theme.shadow?.dark,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 1,
     shadowRadius: 24,
@@ -52,7 +52,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   xxl: {
-    shadowColor: theme.shadow.heavy,
+    shadowColor: theme.shadow?.heavy,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 1,
     shadowRadius: 32,
@@ -61,7 +61,7 @@ export const createShadows = (theme: Theme) => ({
 
   // Special shadows for specific use cases
   card: {
-    shadowColor: theme.shadow.medium,
+    shadowColor: theme.shadow?.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 6,
@@ -69,7 +69,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   button: {
-    shadowColor: theme.shadow.medium,
+    shadowColor: theme.shadow?.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 4,
@@ -77,7 +77,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   modal: {
-    shadowColor: theme.shadow.heavy,
+    shadowColor: theme.shadow?.heavy,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 20,
@@ -85,7 +85,7 @@ export const createShadows = (theme: Theme) => ({
   } as ViewStyle,
 
   fab: {
-    shadowColor: theme.shadow.dark,
+    shadowColor: theme.shadow?.dark,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -127,7 +127,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 48,
     lineHeight: 56,
     fontWeight: '700' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: -0.5,
   } as TextStyle,
 
@@ -136,7 +136,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 36,
     lineHeight: 44,
     fontWeight: '700' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: -0.25,
   } as TextStyle,
 
@@ -144,7 +144,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 32,
     lineHeight: 40,
     fontWeight: '600' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: -0.25,
   } as TextStyle,
 
@@ -152,7 +152,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 28,
     lineHeight: 36,
     fontWeight: '600' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -160,7 +160,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 24,
     lineHeight: 32,
     fontWeight: '600' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -168,7 +168,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 20,
     lineHeight: 28,
     fontWeight: '600' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -176,7 +176,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '600' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -185,7 +185,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 18,
     lineHeight: 28,
     fontWeight: '400' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -193,7 +193,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '400' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -201,7 +201,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '400' as const,
-    color: theme.text.secondary,
+    color: theme.text?.secondary,
     letterSpacing: 0,
   } as TextStyle,
 
@@ -210,7 +210,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '500' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0.1,
   } as TextStyle,
 
@@ -218,7 +218,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '500' as const,
-    color: theme.text.primary,
+    color: theme.text?.primary,
     letterSpacing: 0.1,
   } as TextStyle,
 
@@ -226,7 +226,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500' as const,
-    color: theme.text.secondary,
+    color: theme.text?.secondary,
     letterSpacing: 0.1,
   } as TextStyle,
 
@@ -235,7 +235,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '400' as const,
-    color: theme.text.tertiary,
+    color: theme.text?.tertiary,
     letterSpacing: 0.1,
   } as TextStyle,
 
@@ -243,7 +243,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '400' as const,
-    color: theme.text.tertiary,
+    color: theme.text?.tertiary,
     letterSpacing: 0.1,
   } as TextStyle,
 
@@ -274,7 +274,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600' as const,
-    color: theme.text.secondary,
+    color: theme.text?.secondary,
     letterSpacing: 1,
     textTransform: 'uppercase' as const,
   } as TextStyle,
@@ -283,7 +283,7 @@ export const createTypography = (theme: Theme) => ({
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '500' as const,
-    color: theme.text.link,
+    color: theme.text?.link,
     textDecorationLine: 'underline' as const,
   } as TextStyle,
 });
@@ -398,21 +398,21 @@ export const createComponentStyles = (theme: Theme) => {
     // Card styles
     card: {
       default: {
-        backgroundColor: theme.surface.primary,
+        backgroundColor: theme.surface?.primary,
         borderRadius: borderRadius.lg,
         padding: spacing.lg,
         ...shadows.card,
       } as ViewStyle,
 
       elevated: {
-        backgroundColor: theme.surface.elevated,
+        backgroundColor: theme.surface?.elevated,
         borderRadius: borderRadius.lg,
         padding: spacing.lg,
         ...shadows.md,
       } as ViewStyle,
 
       outlined: {
-        backgroundColor: theme.surface.primary,
+        backgroundColor: theme.surface?.primary,
         borderRadius: borderRadius.lg,
         padding: spacing.lg,
         borderWidth: 1,
@@ -423,7 +423,7 @@ export const createComponentStyles = (theme: Theme) => {
     // Button styles
     button: {
       primary: {
-        backgroundColor: theme.primary.main,
+        backgroundColor: theme.primary?.main,
         borderRadius: borderRadius.lg,
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.lg,
@@ -431,7 +431,7 @@ export const createComponentStyles = (theme: Theme) => {
       } as ViewStyle,
 
       secondary: {
-        backgroundColor: theme.secondary.main,
+        backgroundColor: theme.secondary?.main,
         borderRadius: borderRadius.lg,
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.lg,
@@ -444,7 +444,7 @@ export const createComponentStyles = (theme: Theme) => {
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.lg,
         borderWidth: 2,
-        borderColor: theme.primary.main,
+        borderColor: theme.primary?.main,
       } as ViewStyle,
 
       text: {
@@ -458,7 +458,7 @@ export const createComponentStyles = (theme: Theme) => {
     // Input styles
     input: {
       default: {
-        backgroundColor: theme.surface.secondary,
+        backgroundColor: theme.surface?.secondary,
         borderRadius: borderRadius.md,
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.lg,
@@ -483,12 +483,12 @@ export const createComponentStyles = (theme: Theme) => {
     modal: {
       backdrop: {
         ...layout.position.absoluteFill,
-        backgroundColor: theme.background.overlay,
+        backgroundColor: theme.background?.overlay,
         ...layout.flex.center,
       } as ViewStyle,
 
       container: {
-        backgroundColor: theme.surface.primary,
+        backgroundColor: theme.surface?.primary,
         borderRadius: borderRadius.xl,
         margin: spacing.lg,
         maxWidth: '90%',
@@ -499,7 +499,7 @@ export const createComponentStyles = (theme: Theme) => {
     // Navigation styles
     header: {
       default: {
-        backgroundColor: theme.surface.primary,
+        backgroundColor: theme.surface?.primary,
         borderBottomWidth: 1,
         borderBottomColor: theme.border.secondary,
         ...shadows.sm,
@@ -514,7 +514,7 @@ export const createComponentStyles = (theme: Theme) => {
 
     tabBar: {
       default: {
-        backgroundColor: theme.surface.primary,
+        backgroundColor: theme.surface?.primary,
         borderTopWidth: 1,
         borderTopColor: theme.border.secondary,
         ...shadows.lg,

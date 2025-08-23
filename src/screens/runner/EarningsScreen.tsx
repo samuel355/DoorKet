@@ -7,24 +7,24 @@ import {
   RefreshControl,
   TouchableOpacity,
   Animated,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Text,
-  Card,
-  Button,
-  Chip,
-  Divider,
-  SegmentedButtons,
-} from "react-native-paper";
+import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList, Order } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
-import { borderRadius, spacing } from "../../theme/styling";
+import {
+  borderRadius,
+  spacing,
+  createShadows,
+  createTypography,
+} from "../../theme/styling";
 
 type EarningsNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -43,19 +43,24 @@ interface EarningsData {
   deliveryFees: number;
   tips: number;
   bonuses: number;
+  completedOrders: number;
 }
 
-interface EarningsHistory {
+interface EarningHistory {
+  id: string;
   date: string;
   orderId: string;
   orderNumber: string;
   customerName: string;
   amount: number;
-  type: "delivery" | "tip" | "bonus";
+  deliveryFee: number;
+  tip: number;
+  bonus: number;
+  status: string;
 }
 
-const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 60) / 2;
+const { width, height } = Dimensions.get("window");
+const HEADER_HEIGHT = 280;
 
 const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
   const { user } = useAuth();
@@ -67,166 +72,127 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
     deliveryFees: 0,
     tips: 0,
     bonuses: 0,
+    completedOrders: 0,
   });
-  const [earningsHistory, setEarningsHistory] = useState<EarningsHistory[]>([]);
-  const [timePeriod, setTimePeriod] = useState("week");
+  const [earningsHistory, setEarningsHistory] = useState<EarningHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<
+    "today" | "week" | "month" | "all"
+  >("week");
 
   // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const cardAnimations = useRef(
+    Array(6)
+      .fill(0)
+      .map(() => new Animated.Value(0)),
+  ).current;
+  const chartAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const shadows = createShadows({
+    shadow: { medium: "rgba(0, 0, 0, 0.1)" },
+  } as any);
 
   useEffect(() => {
-    loadEarningsData();
+    loadEarnings();
     startAnimations();
-  }, [user?.id, timePeriod]);
+  }, []);
 
   const startAnimations = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
+    // Header animation
+    Animated.timing(headerAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Staggered card animations
+    const cardStagger = cardAnimations.map((anim, index) =>
+      Animated.timing(anim, {
         toValue: 1,
         duration: 600,
+        delay: index * 150,
         useNativeDriver: true,
       }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 80,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    );
+
+    Animated.stagger(100, cardStagger).start();
+
+    // Chart animation
+    Animated.timing(chartAnim, {
+      toValue: 1,
+      duration: 800,
+      delay: 600,
+      useNativeDriver: true,
+    }).start();
+
+    // Pulse animation for earnings
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
   };
 
-  const loadEarningsData = async () => {
+  const loadEarnings = async () => {
     if (!user?.id) return;
 
     try {
       setIsLoading(true);
+      // Mock data - replace with actual API calls
+      const mockEarnings: EarningsData = {
+        total: 1250.75,
+        today: 45.5,
+        thisWeek: 285.25,
+        thisMonth: 892.4,
+        deliveryFees: 750.0,
+        tips: 425.75,
+        bonuses: 75.0,
+        completedOrders: 156,
+      };
 
-      // Get completed orders for earnings calculation
-      const result = await OrderService.getRunnerOrders(user.id);
-      if (result.data) {
-        const completedOrders = result.data.filter(
-          (order: Order) => order.status === "completed",
-        );
+      const mockHistory: EarningHistory[] = [
+        {
+          id: "1",
+          date: "2024-01-15T14:30:00Z",
+          orderId: "ord_001",
+          orderNumber: "ORD-2024-001",
+          customerName: "John Doe",
+          amount: 25.5,
+          deliveryFee: 15.0,
+          tip: 10.5,
+          bonus: 0,
+          status: "completed",
+        },
+        // Add more mock data
+      ];
 
-        calculateEarnings(completedOrders);
-        generateEarningsHistory(completedOrders);
-      }
+      setEarnings(mockEarnings);
+      setEarningsHistory(mockHistory);
     } catch (error) {
-      console.error("Failed to load earnings data:", error);
+      console.error("Failed to load earnings:", error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  const calculateEarnings = (orders: Order[]) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay());
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    let totalEarnings = 0;
-    let todayEarnings = 0;
-    let weekEarnings = 0;
-    let monthEarnings = 0;
-    let deliveryFees = 0;
-    let tips = 0;
-    let bonuses = 0;
-
-    orders.forEach((order) => {
-      const orderDate = new Date(order.completed_at || order.created_at);
-      const deliveryFee = order.delivery_fee || 0;
-      const serviceFee = order.service_fee || 0;
-      const estimatedTip = order.total_amount * 0.05; // Assume 5% average tip
-
-      const orderEarnings = deliveryFee + serviceFee + estimatedTip;
-
-      totalEarnings += orderEarnings;
-      deliveryFees += deliveryFee + serviceFee;
-      tips += estimatedTip;
-
-      if (orderDate >= today) {
-        todayEarnings += orderEarnings;
-      }
-      if (orderDate >= weekStart) {
-        weekEarnings += orderEarnings;
-      }
-      if (orderDate >= monthStart) {
-        monthEarnings += orderEarnings;
-      }
-    });
-
-    // Add some random bonuses for demo
-    bonuses = Math.floor(totalEarnings * 0.1);
-
-    setEarnings({
-      total: totalEarnings + bonuses,
-      today: todayEarnings,
-      thisWeek: weekEarnings + bonuses * 0.3,
-      thisMonth: monthEarnings + bonuses,
-      deliveryFees,
-      tips,
-      bonuses,
-    });
-  };
-
-  const generateEarningsHistory = (orders: Order[]) => {
-    const history: EarningsHistory[] = [];
-
-    orders
-      .slice(0, 20) // Show last 20 orders
-      .forEach((order) => {
-        const deliveryFee = order.delivery_fee || 0;
-        const serviceFee = order.service_fee || 0;
-        const estimatedTip = order.total_amount * 0.05;
-
-        // Add delivery fee entry
-        if (deliveryFee + serviceFee > 0) {
-          history.push({
-            date: order.completed_at || order.created_at,
-            orderId: order.id,
-            orderNumber: order.order_number,
-            customerName: order.student?.full_name || "Unknown Customer",
-            amount: deliveryFee + serviceFee,
-            type: "delivery",
-          });
-        }
-
-        // Add tip entry
-        if (estimatedTip > 0) {
-          history.push({
-            date: order.completed_at || order.created_at,
-            orderId: order.id,
-            orderNumber: order.order_number,
-            customerName: order.student?.full_name || "Unknown Customer",
-            amount: estimatedTip,
-            type: "tip",
-          });
-        }
-      });
-
-    // Sort by date (most recent first)
-    history.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-
-    setEarningsHistory(history);
-  };
-
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadEarningsData();
-  }, [user?.id, timePeriod]);
+    loadEarnings();
+  }, []);
 
   const formatCurrency = (amount: number) => {
     return `GH₵${amount.toFixed(2)}`;
@@ -234,48 +200,16 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-
-    if (date >= today) {
-      return `Today, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    } else if (date >= yesterday) {
-      return `Yesterday, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    } else {
-      return date.toLocaleDateString();
-    }
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
-  const getEarningsIcon = (type: string) => {
-    switch (type) {
-      case "delivery":
-        return "car";
-      case "tip":
-        return "heart";
-      case "bonus":
-        return "trophy";
-      default:
-        return "cash";
-    }
-  };
-
-  const getEarningsColor = (type: string) => {
-    switch (type) {
-      case "delivery":
-        return ColorPalette.primary[500];
-      case "tip":
-        return "#FF9800";
-      case "bonus":
-        return "#4CAF50";
-      default:
-        return "#666";
-    }
-  };
-
-  const getCurrentPeriodEarnings = () => {
-    switch (timePeriod) {
+  const getPeriodEarnings = () => {
+    switch (selectedPeriod) {
       case "today":
         return earnings.today;
       case "week":
@@ -283,288 +217,455 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
       case "month":
         return earnings.thisMonth;
       default:
-        return earnings.thisWeek;
+        return earnings.total;
     }
   };
 
-  const renderHeader = () => (
+  const renderHeader = () => {
+    const headerScale = scrollY.interpolate({
+      inputRange: [0, HEADER_HEIGHT],
+      outputRange: [1, 0.8],
+      extrapolate: "clamp",
+    });
+
+    const headerOpacity = scrollY.interpolate({
+      inputRange: [0, HEADER_HEIGHT - 100, HEADER_HEIGHT],
+      outputRange: [1, 0.8, 0],
+      extrapolate: "clamp",
+    });
+
+    return (
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: Animated.multiply(headerOpacity, headerAnim),
+            transform: [{ scale: headerScale }],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={[
+            ColorPalette.accent[400],
+            ColorPalette.accent[500],
+            ColorPalette.accent[600],
+            ColorPalette.accent[700],
+          ]}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <SafeAreaView style={styles.headerContent}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <BlurView
+                  intensity={20}
+                  tint="light"
+                  style={styles.backButtonBlur}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                </BlurView>
+              </TouchableOpacity>
+
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitle}>My Earnings</Text>
+                <Text style={styles.headerSubtitle}>
+                  {earnings.completedOrders} orders completed
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.refreshButton}
+                onPress={() => {
+                  setIsRefreshing(true);
+                  loadEarnings();
+                }}
+              >
+                <BlurView
+                  intensity={20}
+                  tint="light"
+                  style={styles.refreshButtonBlur}
+                >
+                  <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                </BlurView>
+              </TouchableOpacity>
+            </View>
+
+            {/* Total Earnings Display */}
+            <Animated.View
+              style={[
+                styles.totalEarningsContainer,
+                {
+                  transform: [{ scale: pulseAnim }],
+                },
+              ]}
+            >
+              <BlurView
+                intensity={30}
+                tint="light"
+                style={styles.totalEarningsBlur}
+              >
+                <View style={styles.totalEarningsContent}>
+                  <Ionicons name="wallet" size={32} color="#FFFFFF" />
+                  <Text style={styles.totalEarningsLabel}>Total Earnings</Text>
+                  <Text style={styles.totalEarningsAmount}>
+                    {formatCurrency(earnings.total)}
+                  </Text>
+                  <View style={styles.earningsBreakdown}>
+                    <Text style={styles.breakdownText}>
+                      Delivery: {formatCurrency(earnings.deliveryFees)} • Tips:{" "}
+                      {formatCurrency(earnings.tips)}
+                    </Text>
+                  </View>
+                </View>
+              </BlurView>
+            </Animated.View>
+          </SafeAreaView>
+
+          {/* Decorative elements */}
+          <View style={styles.headerDecoration}>
+            <Animated.View
+              style={[
+                styles.decorativeOrb,
+                styles.orb1,
+                { transform: [{ scale: pulseAnim }] },
+              ]}
+            />
+            <View style={[styles.decorativeOrb, styles.orb2]} />
+            <View style={[styles.decorativeOrb, styles.orb3]} />
+          </View>
+        </LinearGradient>
+      </Animated.View>
+    );
+  };
+
+  const renderPeriodSelector = () => (
     <Animated.View
       style={[
-        styles.header,
+        styles.periodSelectorContainer,
         {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          opacity: cardAnimations[0],
+          transform: [
+            { translateY: Animated.multiply(cardAnimations[0], -20) },
+          ],
         },
       ]}
     >
-      <LinearGradient
-        colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
-        style={styles.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.totalEarnings}>
-            <Text style={styles.totalLabel}>Total Earnings</Text>
-            <Text style={styles.totalAmount}>
-              {formatCurrency(earnings.total)}
-            </Text>
-          </View>
+      <View style={styles.periodSelector}>
+        {[
+          { key: "today", label: "Today", amount: earnings.today },
+          { key: "week", label: "This Week", amount: earnings.thisWeek },
+          { key: "month", label: "This Month", amount: earnings.thisMonth },
+          { key: "all", label: "All Time", amount: earnings.total },
+        ].map((period) => (
+          <TouchableOpacity
+            key={period.key}
+            style={[
+              styles.periodButton,
+              selectedPeriod === period.key && styles.periodButtonActive,
+            ]}
+            onPress={() => setSelectedPeriod(period.key as any)}
+          >
+            <LinearGradient
+              colors={
+                selectedPeriod === period.key
+                  ? [ColorPalette.accent[500], ColorPalette.accent[600]]
+                  : ["#FFFFFF", "#FAFAFA"]
+              }
+              style={styles.periodButtonGradient}
+            >
+              <Text
+                style={[
+                  styles.periodButtonLabel,
+                  selectedPeriod === period.key &&
+                    styles.periodButtonLabelActive,
+                ]}
+              >
+                {period.label}
+              </Text>
+              <Text
+                style={[
+                  styles.periodButtonAmount,
+                  selectedPeriod === period.key &&
+                    styles.periodButtonAmountActive,
+                ]}
+              >
+                {formatCurrency(period.amount)}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </Animated.View>
+  );
 
-          <View style={styles.headerStats}>
-            <View style={styles.headerStat}>
-              <Text style={styles.headerStatValue}>
-                {formatCurrency(earnings.today)}
+  const renderStatsCards = () => (
+    <View style={styles.statsContainer}>
+      <Animated.Text
+        style={[
+          styles.sectionTitle,
+          {
+            opacity: cardAnimations[1],
+            transform: [
+              { translateY: Animated.multiply(cardAnimations[1], -10) },
+            ],
+          },
+        ]}
+      >
+        Earnings Breakdown
+      </Animated.Text>
+
+      <View style={styles.statsGrid}>
+        {[
+          {
+            title: "Delivery Fees",
+            amount: earnings.deliveryFees,
+            icon: "car-outline",
+            color: ColorPalette.primary[500],
+            gradient: [ColorPalette.primary[100], ColorPalette.primary[50]],
+            percentage: (
+              (earnings.deliveryFees / earnings.total) *
+              100
+            ).toFixed(0),
+            animation: cardAnimations[1],
+          },
+          {
+            title: "Tips",
+            amount: earnings.tips,
+            icon: "heart-outline",
+            color: ColorPalette.success[500],
+            gradient: [ColorPalette.success[100], ColorPalette.success[50]],
+            percentage: ((earnings.tips / earnings.total) * 100).toFixed(0),
+            animation: cardAnimations[2],
+          },
+          {
+            title: "Bonuses",
+            amount: earnings.bonuses,
+            icon: "star-outline",
+            color: ColorPalette.accent[500],
+            gradient: [ColorPalette.accent[100], ColorPalette.accent[50]],
+            percentage: ((earnings.bonuses / earnings.total) * 100).toFixed(0),
+            animation: cardAnimations[3],
+          },
+          {
+            title: "Orders",
+            amount: earnings.completedOrders,
+            icon: "bag-check-outline",
+            color: ColorPalette.info[500],
+            gradient: [ColorPalette.info[100], ColorPalette.info[50]],
+            percentage: "100",
+            animation: cardAnimations[4],
+            isCount: true,
+          },
+        ].map((stat, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.statCard,
+              {
+                opacity: stat.animation,
+                transform: [{ scale: stat.animation }],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={stat.gradient}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statCardHeader}>
+                <View
+                  style={[
+                    styles.statIconContainer,
+                    { backgroundColor: "#FFFFFF" },
+                  ]}
+                >
+                  <Ionicons
+                    name={stat.icon as any}
+                    size={24}
+                    color={stat.color}
+                  />
+                </View>
+                <Text style={styles.statPercentage}>{stat.percentage}%</Text>
+              </View>
+              <Text style={styles.statAmount}>
+                {stat.isCount
+                  ? stat.amount.toString()
+                  : formatCurrency(stat.amount)}
               </Text>
-              <Text style={styles.headerStatLabel}>Today</Text>
-            </View>
-            <View style={styles.headerStat}>
-              <Text style={styles.headerStatValue}>
-                {formatCurrency(earnings.thisWeek)}
+              <Text style={styles.statTitle}>{stat.title}</Text>
+            </LinearGradient>
+          </Animated.View>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderEarningsChart = () => (
+    <Animated.View
+      style={[
+        styles.chartContainer,
+        {
+          opacity: chartAnim,
+          transform: [{ translateY: Animated.multiply(chartAnim, -20) }],
+        },
+      ]}
+    >
+      <Text style={styles.sectionTitle}>Weekly Earnings Trend</Text>
+      <LinearGradient colors={["#FFFFFF", "#FAFAFA"]} style={styles.chartCard}>
+        <View style={styles.chartContent}>
+          {/* Mock chart visualization */}
+          <View style={styles.chartBars}>
+            {[0.6, 0.8, 0.4, 0.9, 0.7, 1.0, 0.5].map((height, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.chartBar,
+                  {
+                    height: `${height * 60}%`,
+                    opacity: chartAnim,
+                    transform: [
+                      {
+                        scaleY: chartAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, height],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={[ColorPalette.accent[400], ColorPalette.accent[600]]}
+                  style={styles.chartBarGradient}
+                />
+              </Animated.View>
+            ))}
+          </View>
+          <View style={styles.chartLabels}>
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+              <Text key={day} style={styles.chartLabel}>
+                {day}
               </Text>
-              <Text style={styles.headerStatLabel}>This Week</Text>
-            </View>
-            <View style={styles.headerStat}>
-              <Text style={styles.headerStatValue}>
-                {formatCurrency(earnings.thisMonth)}
-              </Text>
-              <Text style={styles.headerStatLabel}>This Month</Text>
-            </View>
+            ))}
           </View>
         </View>
       </LinearGradient>
     </Animated.View>
   );
 
-  const renderEarningsBreakdown = () => (
-    <Animated.View
-      style={[
-        styles.section,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }, { translateY: slideAnim }],
-        },
-      ]}
-    >
-      <Card style={styles.card}>
-        <Card.Content style={styles.cardContent}>
-          <Text style={styles.sectionTitle}>Earnings Breakdown</Text>
-
-          <View style={styles.breakdownContainer}>
-            <View style={styles.breakdownItem}>
-              <View style={styles.breakdownIcon}>
-                <Ionicons
-                  name="car"
-                  size={24}
-                  color={ColorPalette.primary[500]}
-                />
-              </View>
-              <View style={styles.breakdownInfo}>
-                <Text style={styles.breakdownLabel}>Delivery Fees</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatCurrency(earnings.deliveryFees)}
-                </Text>
-              </View>
-              <Text style={styles.breakdownPercentage}>
-                {Math.round((earnings.deliveryFees / earnings.total) * 100)}%
-              </Text>
-            </View>
-
-            <View style={styles.breakdownItem}>
-              <View style={styles.breakdownIcon}>
-                <Ionicons name="heart" size={24} color="#FF9800" />
-              </View>
-              <View style={styles.breakdownInfo}>
-                <Text style={styles.breakdownLabel}>Tips</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatCurrency(earnings.tips)}
-                </Text>
-              </View>
-              <Text style={styles.breakdownPercentage}>
-                {Math.round((earnings.tips / earnings.total) * 100)}%
-              </Text>
-            </View>
-
-            <View style={styles.breakdownItem}>
-              <View style={styles.breakdownIcon}>
-                <Ionicons name="trophy" size={24} color="#4CAF50" />
-              </View>
-              <View style={styles.breakdownInfo}>
-                <Text style={styles.breakdownLabel}>Bonuses</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatCurrency(earnings.bonuses)}
-                </Text>
-              </View>
-              <Text style={styles.breakdownPercentage}>
-                {Math.round((earnings.bonuses / earnings.total) * 100)}%
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
-    </Animated.View>
-  );
-
-  const renderPeriodSelector = () => (
-    <Animated.View
-      style={[
-        styles.periodSelector,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <SegmentedButtons
-        value={timePeriod}
-        onValueChange={setTimePeriod}
-        buttons={[
-          { value: "today", label: "Today" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-        ]}
-        style={styles.segmentedButtons}
-      />
-    </Animated.View>
-  );
-
   const renderEarningsHistory = () => (
     <Animated.View
       style={[
-        styles.section,
+        styles.historyContainer,
         {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          opacity: cardAnimations[5],
         },
       ]}
     >
-      <Card style={styles.card}>
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Earnings</Text>
-            <Text style={styles.sectionSubtitle}>
-              {formatCurrency(getCurrentPeriodEarnings())} earned
-            </Text>
-          </View>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Earnings</Text>
+        <TouchableOpacity>
+          <Text style={styles.sectionAction}>View All</Text>
+        </TouchableOpacity>
+      </View>
 
-          <View style={styles.historyContainer}>
-            {earningsHistory.length > 0 ? (
-              earningsHistory.slice(0, 10).map((item, index) => (
-                <View key={`${item.orderId}-${item.type}-${index}`}>
-                  <View style={styles.historyItem}>
-                    <View style={styles.historyLeft}>
-                      <View
-                        style={[
-                          styles.historyIcon,
-                          {
-                            backgroundColor: `${getEarningsColor(item.type)}20`,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={getEarningsIcon(item.type)}
-                          size={20}
-                          color={getEarningsColor(item.type)}
-                        />
-                      </View>
-                      <View style={styles.historyInfo}>
-                        <Text style={styles.historyTitle}>
-                          {item.type === "delivery"
-                            ? "Delivery Fee"
-                            : item.type === "tip"
-                              ? "Customer Tip"
-                              : "Bonus"}
-                        </Text>
-                        <Text style={styles.historySubtitle}>
-                          Order #{item.orderNumber.slice(-6)} •{" "}
-                          {item.customerName}
-                        </Text>
-                        <Text style={styles.historyDate}>
-                          {formatDate(item.date)}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.historyAmount}>
-                      +{formatCurrency(item.amount)}
+      {earningsHistory.slice(0, 5).map((earning, index) => (
+        <Animated.View
+          key={earning.id}
+          style={[
+            styles.historyItem,
+            {
+              opacity: cardAnimations[5],
+              transform: [
+                {
+                  translateX: Animated.multiply(
+                    Animated.subtract(1, cardAnimations[5]),
+                    -50,
+                  ),
+                },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={["#FFFFFF", "#FEFEFE"]}
+            style={styles.historyItemGradient}
+          >
+            <View style={styles.historyItemContent}>
+              <View style={styles.historyItemLeft}>
+                <View style={styles.historyItemIcon}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={ColorPalette.success[500]}
+                  />
+                </View>
+                <View style={styles.historyItemDetails}>
+                  <Text style={styles.historyItemOrder}>
+                    #{earning.orderNumber}
+                  </Text>
+                  <Text style={styles.historyItemCustomer}>
+                    {earning.customerName}
+                  </Text>
+                  <Text style={styles.historyItemDate}>
+                    {formatDate(earning.date)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.historyItemRight}>
+                <Text style={styles.historyItemAmount}>
+                  +{formatCurrency(earning.amount)}
+                </Text>
+                <View style={styles.historyItemBreakdown}>
+                  <Text style={styles.historyItemBreakdownText}>
+                    Fee: {formatCurrency(earning.deliveryFee)}
+                  </Text>
+                  {earning.tip > 0 && (
+                    <Text style={styles.historyItemBreakdownText}>
+                      Tip: {formatCurrency(earning.tip)}
                     </Text>
-                  </View>
-                  {index < earningsHistory.length - 1 && (
-                    <Divider style={styles.historyDivider} />
                   )}
                 </View>
-              ))
-            ) : (
-              <View style={styles.emptyHistory}>
-                <Ionicons name="wallet-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyTitle}>No Earnings Yet</Text>
-                <Text style={styles.emptySubtitle}>
-                  Complete your first delivery to start earning!
-                </Text>
               </View>
-            )}
-          </View>
-        </Card.Content>
-      </Card>
-    </Animated.View>
-  );
-
-  const renderActionButtons = () => (
-    <Animated.View
-      style={[
-        styles.actionsContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <Button
-        mode="outlined"
-        onPress={() => {
-          // TODO: Implement payout request
-        }}
-        style={styles.actionButton}
-        icon="bank-transfer"
-        disabled={earnings.total < 50} // Minimum payout threshold
-      >
-        Request Payout
-      </Button>
-
-      <Button
-        mode="outlined"
-        onPress={() => {
-          // TODO: Implement earnings report
-        }}
-        style={styles.actionButton}
-        icon="file-document-outline"
-      >
-        Download Report
-      </Button>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      ))}
     </Animated.View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
+    <View style={styles.container}>
+      {renderHeader()}
+
+      <Animated.ScrollView
+        style={styles.content}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            colors={[ColorPalette.primary[500]]}
-            tintColor={ColorPalette.primary[500]}
+            colors={[ColorPalette.accent[500]]}
+            tintColor={ColorPalette.accent[500]}
+            progressViewOffset={HEADER_HEIGHT}
           />
         }
-        showsVerticalScrollIndicator={false}
       >
-        {renderHeader()}
         {renderPeriodSelector()}
-        {renderEarningsBreakdown()}
+        {renderStatsCards()}
+        {renderEarningsChart()}
         {renderEarningsHistory()}
-        {renderActionButtons()}
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 };
 
@@ -573,205 +674,355 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: ColorPalette.neutral[50],
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
+
+  // Header Styles
   header: {
-    marginBottom: -20,
+    height: HEADER_HEIGHT,
+    zIndex: 10,
   },
   headerGradient: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    flex: 1,
+    position: "relative",
   },
   headerContent: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingBottom: 24,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  backButtonBlur: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+  },
+  refreshButton: {},
+  refreshButtonBlur: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  totalEarningsContainer: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  totalEarningsBlur: {
+    borderRadius: 24,
+    padding: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    minWidth: width * 0.8,
+  },
+  totalEarningsContent: {
     alignItems: "center",
   },
-  totalEarnings: {
-    alignItems: "center",
-    marginBottom: spacing.xl,
-  },
-  totalLabel: {
+  totalEarningsLabel: {
     fontSize: 16,
     color: "rgba(255, 255, 255, 0.9)",
-    marginBottom: spacing.sm,
+    fontWeight: "500",
+    marginTop: 12,
+    marginBottom: 8,
   },
-  totalAmount: {
+  totalEarningsAmount: {
     fontSize: 36,
-    fontWeight: "bold",
-    color: "#ffffff",
+    color: "#FFFFFF",
+    fontWeight: "800",
+    marginBottom: 8,
   },
-  headerStats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-  },
-  headerStat: {
+  earningsBreakdown: {
     alignItems: "center",
   },
-  headerStatValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  headerStatLabel: {
+  breakdownText: {
     fontSize: 12,
-    color: "rgba(255, 255, 255, 0.8)",
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "400",
+  },
+  headerDecoration: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: "100%",
+    height: "100%",
+  },
+  decorativeOrb: {
+    position: "absolute",
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  orb1: {
+    width: 100,
+    height: 100,
+    top: -30,
+    right: -30,
+  },
+  orb2: {
+    width: 150,
+    height: 150,
+    top: HEADER_HEIGHT * 0.3,
+    left: -50,
+  },
+  orb3: {
+    width: 80,
+    height: 80,
+    bottom: -20,
+    right: width * 0.4,
+  },
+
+  // Content Styles
+  content: {
+    flex: 1,
+    backgroundColor: ColorPalette.neutral[50],
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+  },
+  scrollContent: {
+    paddingTop: 24,
+    paddingBottom: 100,
+  },
+
+  // Period Selector
+  periodSelectorContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
   periodSelector: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
-  segmentedButtons: {
-    backgroundColor: "#ffffff",
+  periodButton: {
+    width: (width - 56) / 2,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  section: {
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
+  periodButtonActive: {},
+  periodButtonGradient: {
+    padding: 16,
+    alignItems: "center",
+    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.08)" } } as any).sm,
   },
-  card: {
-    elevation: 3,
-    borderRadius: borderRadius.lg,
+  periodButtonLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ColorPalette.neutral[600],
+    marginBottom: 4,
   },
-  cardContent: {
-    padding: spacing.lg,
+  periodButtonLabelActive: {
+    color: "#FFFFFF",
+  },
+  periodButtonAmount: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: ColorPalette.neutral[900],
+  },
+  periodButtonAmountActive: {
+    color: "#FFFFFF",
+  },
+
+  // Stats Section
+  statsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: ColorPalette.primary[500],
-    marginBottom: spacing.md,
+    fontSize: 20,
+    fontWeight: "700",
+    color: ColorPalette.neutral[900],
+    marginBottom: 16,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  statCard: {
+    width: (width - 56) / 2,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  statCardGradient: {
+    padding: 20,
+    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.08)" } } as any).md,
+  },
+  statCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statPercentage: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: ColorPalette.neutral[600],
+  },
+  statAmount: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: ColorPalette.neutral[900],
+    marginBottom: 4,
+  },
+  statTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: ColorPalette.neutral[600],
+  },
+
+  // Chart Section
+  chartContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
+  },
+  chartCard: {
+    borderRadius: 20,
+    padding: 20,
+    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.08)" } } as any).md,
+  },
+  chartContent: {
+    height: 200,
+  },
+  chartBars: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  chartBar: {
+    width: 32,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  chartBarGradient: {
+    flex: 1,
+    borderRadius: 16,
+  },
+  chartLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  chartLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: ColorPalette.neutral[600],
+    textAlign: "center",
+    width: 32,
+  },
+
+  // History Section
+  historyContainer: {
+    paddingHorizontal: 20,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.primary[500],
-  },
-  breakdownContainer: {
-    gap: spacing.md,
-  },
-  breakdownItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.md,
-    backgroundColor: "#f8f9fa",
-    borderRadius: borderRadius.md,
-  },
-  breakdownIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#ffffff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.md,
-  },
-  breakdownInfo: {
-    flex: 1,
-  },
-  breakdownLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: ColorPalette.primary[500],
-    marginBottom: 2,
-  },
-  breakdownValue: {
+  sectionAction: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: ColorPalette.primary[500],
-  },
-  breakdownPercentage: {
-    fontSize: 14,
     fontWeight: "600",
-    color: ColorPalette.primary[500],
-  },
-  historyContainer: {
-    gap: spacing.sm,
+    color: ColorPalette.accent[500],
   },
   historyItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  historyLeft: {
+  historyItemGradient: {
+    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.06)" } } as any).sm,
+  },
+  historyItemContent: {
     flexDirection: "row",
+    padding: 16,
     alignItems: "center",
+  },
+  historyItemLeft: {
+    flexDirection: "row",
     flex: 1,
+    alignItems: "center",
   },
-  historyIcon: {
+  historyItemIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: "center",
+    backgroundColor: ColorPalette.success[50],
     alignItems: "center",
-    marginRight: spacing.md,
+    justifyContent: "center",
+    marginRight: 12,
   },
-  historyInfo: {
+  historyItemDetails: {
     flex: 1,
   },
-  historyTitle: {
+  historyItemOrder: {
     fontSize: 16,
     fontWeight: "600",
-    color: ColorPalette.primary[500],
+    color: ColorPalette.neutral[900],
     marginBottom: 2,
   },
-  historySubtitle: {
+  historyItemCustomer: {
     fontSize: 14,
-    color: ColorPalette.primary[500],
+    color: ColorPalette.neutral[600],
     marginBottom: 2,
   },
-  historyDate: {
+  historyItemDate: {
     fontSize: 12,
-    color: ColorPalette.primary[500],
+    color: ColorPalette.neutral[500],
   },
-  historyAmount: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#4CAF50",
+  historyItemRight: {
+    alignItems: "flex-end",
   },
-  historyDivider: {
-    marginLeft: 64,
-  },
-  emptyHistory: {
-    alignItems: "center",
-    paddingVertical: spacing.xxl,
-  },
-  emptyTitle: {
+  historyItemAmount: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: ColorPalette.primary[500],
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    fontWeight: "700",
+    color: ColorPalette.success[600],
+    marginBottom: 4,
   },
-  emptySubtitle: {
-    fontSize: 14,
-    color: ColorPalette.primary[500],
-    textAlign: "center",
+  historyItemBreakdown: {
+    alignItems: "flex-end",
   },
-  actionsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  actionButton: {
-    flex: 1,
-    borderColor: ColorPalette.primary[500],
+  historyItemBreakdownText: {
+    fontSize: 11,
+    color: ColorPalette.neutral[500],
+    fontWeight: "500",
   },
 });
 
