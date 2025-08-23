@@ -19,7 +19,7 @@ interface CartState {
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
-  addCustomItem: (name: string, budget: number, notes?: string) => void;
+  addCustomItem: (name: string, budget: number, notes?: string) => boolean;
 
   // Cart information
   updateDeliveryAddress: (address: string) => void;
@@ -274,16 +274,28 @@ export const useCartStore = create<CartState>()(
       },
 
       // Add custom item
-      addCustomItem: (name: string, budget: number, notes: string = "") => {
+      addCustomItem: (
+        name: string,
+        budget: number,
+        notes: string = "",
+      ): boolean => {
         try {
           if (!name.trim()) {
             set({ error: "Custom item name is required" });
-            return;
+            return false;
           }
 
           if (budget <= 0) {
             set({ error: "Budget must be greater than 0" });
-            return;
+            return false;
+          }
+
+          const currentCart = get().cart;
+          if (currentCart.items.length >= APP_CONFIG.MAX_CART_ITEMS) {
+            set({
+              error: `Cart is full. Maximum ${APP_CONFIG.MAX_CART_ITEMS} items allowed.`,
+            });
+            return false;
           }
 
           const customItem: CartItem = {
@@ -295,10 +307,69 @@ export const useCartStore = create<CartState>()(
             total_price: budget,
           };
 
-          get().addItem(customItem, 1, notes);
+          // Clear any existing error before adding
+          set({ error: null });
+
+          // Create a new items array to check if the item will fit
+          const currentItems = get().cart.items;
+          if (currentItems.length >= APP_CONFIG.MAX_CART_ITEMS) {
+            set({
+              error: `Cart is full. Maximum ${APP_CONFIG.MAX_CART_ITEMS} items already in cart.`,
+            });
+            return false;
+          }
+
+          // Check if custom item with same name already exists
+          const existingCustomItem = currentItems.find(
+            (item) => item.custom_item_name === name.trim(),
+          );
+
+          if (existingCustomItem) {
+            // Update existing custom item quantity and total
+            const newQuantity = existingCustomItem.quantity + 1;
+            const newTotal = existingCustomItem.custom_budget! * newQuantity;
+
+            const updatedItems = currentItems.map((item) =>
+              item.custom_item_name === name.trim()
+                ? {
+                    ...item,
+                    quantity: newQuantity,
+                    total_price: newTotal,
+                    notes: notes.trim() || item.notes || "",
+                  }
+                : item,
+            );
+
+            const totals = calculateCartTotals(updatedItems);
+
+            set({
+              cart: {
+                ...get().cart,
+                items: updatedItems,
+                ...totals,
+              },
+              error: null,
+            });
+          } else {
+            // Add new custom item
+            const updatedItems = [...currentItems, customItem];
+            const totals = calculateCartTotals(updatedItems);
+
+            set({
+              cart: {
+                ...get().cart,
+                items: updatedItems,
+                ...totals,
+              },
+              error: null,
+            });
+          }
+
+          return true;
         } catch (error) {
           console.error("Error adding custom item:", error);
           set({ error: "Failed to add custom item" });
+          return false;
         }
       },
 

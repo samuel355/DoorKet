@@ -16,7 +16,7 @@ import { Text, TextInput, Button, Divider } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { useCartActions } from "@/store/cartStore";
+import { useCartActions, useCartStore } from "@/store/cartStore";
 import { formatCurrency } from "@/src/utils";
 import { ColorPalette } from "@/src/theme/colors";
 import { spacing, borderRadius } from "@/src/theme/styling";
@@ -50,6 +50,8 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
   }>({});
 
   const { addCustomItem } = useCartActions();
+  const cartError = useCartStore((state) => state.error);
+  const clearCartError = useCartStore((state) => state.clearError);
 
   // Reset form when dialog opens/closes
   React.useEffect(() => {
@@ -58,8 +60,9 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
       setBudget(prefilledBudget > 0 ? prefilledBudget.toString() : "");
       setNotes(prefilledNotes);
       setErrors({});
+      clearCartError();
     }
-  }, [visible, prefilledName, prefilledBudget, prefilledNotes]);
+  }, [visible, prefilledName, prefilledBudget, prefilledNotes, clearCartError]);
 
   const validateForm = useCallback((): boolean => {
     const newErrors: { name?: string; budget?: string } = {};
@@ -94,11 +97,11 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
 
     try {
       const budgetValue = parseFloat(budget);
-      const success = await addCustomItem(
-        itemName.trim(),
-        budgetValue,
-        notes.trim(),
-      );
+
+      // Clear any previous cart errors
+      clearCartError();
+
+      const success = addCustomItem(itemName.trim(), budgetValue, notes.trim());
 
       if (success) {
         Alert.alert("Success!", `"${itemName}" has been added to your cart`, [
@@ -107,9 +110,10 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
         onSuccess?.();
         onDismiss();
       } else {
-        Alert.alert("Error", "Failed to add item to cart. Please try again.", [
-          { text: "OK" },
-        ]);
+        // Check if there's a specific cart error message
+        const errorMessage =
+          cartError || "Failed to add item to cart. Please try again.";
+        Alert.alert("Error", errorMessage, [{ text: "OK" }]);
       }
     } catch (error) {
       console.error("Error adding custom item:", error);
