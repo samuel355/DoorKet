@@ -2,12 +2,13 @@ import { StudentStackParamList } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
+import { CommonActions } from "@react-navigation/native";
 import React from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, Text, TouchableOpacity } from "react-native";
 import ProfileScreen from "../screens/shared/ProfileScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import SettingsScreen from "../screens/shared/SettingsScreen";
-import CartScreen from "../screens/student/CartScreen";
+import EnhancedCartScreen from "../screens/student/EnhancedCartScreen";
 import CategoriesScreen from "../screens/student/CategoriesScreen";
 import CategoryItemsScreen from "../screens/student/CategoryItemsScreen";
 import CheckoutScreen from "../screens/student/CheckoutScreen";
@@ -16,6 +17,8 @@ import ItemDetailsScreen from "../screens/student/ItemDetailsScreen";
 import OrderHistoryScreen from "../screens/student/OrderHistoryScreen";
 import OrderTrackingScreen from "../screens/student/OrderTrackingScreen";
 import PaymentScreen from "../screens/student/PaymentScreen";
+import { useCartItemCount } from "@/store/cartStore";
+import { CartBadge } from "../components/cart";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<StudentStackParamList>();
@@ -31,38 +34,127 @@ const HomeStackNavigator = () => {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{
+        options={({ navigation }) => ({
           title: "DoorKet",
           headerRight: () => (
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color="#ffffff"
-              style={{ marginRight: 16 }}
-            />
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginRight: 16,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Notifications")}
+                style={{ marginRight: 12 }}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={24}
+                  color="#ffffff"
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.getParent()?.dispatch(
+                    CommonActions.navigate({
+                      name: "CartTab",
+                      params: { screen: "Cart" },
+                    }),
+                  )
+                }
+              >
+                <CartBadge
+                  color="#ffffff"
+                  badgeColor="#FF6B6B"
+                  size="small"
+                  showZero={false}
+                />
+              </TouchableOpacity>
+            </View>
           ),
-        }}
+        })}
       />
       <Stack.Screen
         name="Categories"
         component={CategoriesScreen}
-        options={{
+        options={({ navigation }) => ({
           title: "All Categories",
-        }}
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.getParent()?.dispatch(
+                  CommonActions.navigate({
+                    name: "CartTab",
+                    params: { screen: "Cart" },
+                  }),
+                )
+              }
+              style={{ marginRight: 16 }}
+            >
+              <CartBadge
+                color="#ffffff"
+                badgeColor="#FF6B6B"
+                size="small"
+                showZero={false}
+              />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <Stack.Screen
         name="CategoryItems"
         component={CategoryItemsScreen}
-        options={({ route }) => ({
+        options={({ route, navigation }) => ({
           title: route.params.categoryName,
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.getParent()?.dispatch(
+                  CommonActions.navigate({
+                    name: "CartTab",
+                    params: { screen: "Cart" },
+                  }),
+                )
+              }
+              style={{ marginRight: 16 }}
+            >
+              <CartBadge
+                color="#ffffff"
+                badgeColor="#FF6B6B"
+                size="small"
+                showZero={false}
+              />
+            </TouchableOpacity>
+          ),
         })}
       />
       <Stack.Screen
         name="ItemDetails"
         component={ItemDetailsScreen}
-        options={{
+        options={({ navigation }) => ({
           title: "Item Details",
-        }}
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.getParent()?.dispatch(
+                  CommonActions.navigate({
+                    name: "CartTab",
+                    params: { screen: "Cart" },
+                  }),
+                )
+              }
+              style={{ marginRight: 16 }}
+            >
+              <CartBadge
+                color="#ffffff"
+                badgeColor="#FF6B6B"
+                size="small"
+                showZero={false}
+              />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <Stack.Screen
         name="Notifications"
@@ -83,7 +175,7 @@ const CartStackNavigator = () => {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="Cart" component={CartScreen} />
+      <Stack.Screen name="Cart" component={EnhancedCartScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
     </Stack.Navigator>
@@ -144,6 +236,8 @@ const ProfileStackNavigator = () => {
 };
 
 const StudentNavigator: React.FC = () => {
+  const cartItemCount = useCartItemCount();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -177,6 +271,7 @@ const StudentNavigator: React.FC = () => {
                 minWidth: 50,
                 alignItems: "center",
                 justifyContent: "center",
+                position: "relative",
               }}
             >
               <Ionicons
@@ -184,6 +279,35 @@ const StudentNavigator: React.FC = () => {
                 size={focused ? 26 : 24}
                 color={focused ? "#7c73f0" : "#64748b"}
               />
+              {route.name === "CartTab" && cartItemCount > 0 && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    right: 8,
+                    backgroundColor: "#FF6B6B",
+                    borderRadius: 10,
+                    minWidth: 20,
+                    height: 20,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderWidth: 2,
+                    borderColor: "#ffffff",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#ffffff",
+                      fontSize: 11,
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                    numberOfLines={1}
+                  >
+                    {cartItemCount > 99 ? "99+" : cartItemCount}
+                  </Text>
+                </View>
+              )}
             </View>
           );
         },
@@ -229,7 +353,12 @@ const StudentNavigator: React.FC = () => {
         component={CartStackNavigator}
         options={{
           tabBarLabel: "Cart",
-          tabBarBadge: undefined, // Can be used for cart items count
+          tabBarBadge:
+            cartItemCount > 0
+              ? cartItemCount > 99
+                ? "99+"
+                : cartItemCount.toString()
+              : undefined,
         }}
       />
 

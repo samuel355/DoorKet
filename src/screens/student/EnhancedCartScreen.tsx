@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -27,6 +27,7 @@ import { StudentStackParamList, CartItem } from "@/types";
 import { ColorPalette } from "@/src/theme/colors";
 import { spacing, borderRadius } from "@/src/theme/styling";
 import { showConfirmation } from "@/src/utils";
+import { CommonActions } from "@react-navigation/native";
 
 type EnhancedCartScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -37,7 +38,7 @@ interface EnhancedCartScreenProps {
   navigation: EnhancedCartScreenNavigationProp;
 }
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
 const HEADER_HEIGHT = height * 0.15;
 
 const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
@@ -55,13 +56,7 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
   const canCheckout = useCartStore((state) => state.canCheckout);
 
   // Cart actions
-  const {
-    removeItem,
-    updateQuantity,
-    clearCart,
-    updateDeliveryAddress,
-    updateSpecialInstructions,
-  } = useCartActions();
+  const { removeItem, updateQuantity, clearCart } = useCartActions();
 
   const isEmpty = cart.items.length === 0;
   const itemCount = getTotalItems();
@@ -79,11 +74,21 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
   }, [navigation]);
 
   const handleGoToHome = useCallback(() => {
-    navigation.navigate("Home");
+    navigation.getParent()?.dispatch(
+      CommonActions.navigate({
+        name: "HomeTab",
+        params: { screen: "Home" },
+      }),
+    );
   }, [navigation]);
 
   const handleGoToCategories = useCallback(() => {
-    navigation.navigate("Categories");
+    navigation.getParent()?.dispatch(
+      CommonActions.navigate({
+        name: "HomeTab",
+        params: { screen: "Categories" },
+      }),
+    );
   }, [navigation]);
 
   const handleCheckout = useCallback(() => {
@@ -98,7 +103,7 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
     async (itemId: string, newQuantity: number) => {
       await updateQuantity(itemId, newQuantity);
     },
-    [updateQuantity]
+    [updateQuantity],
   );
 
   const handleRemoveItem = useCallback(
@@ -110,17 +115,17 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
       showConfirmation(
         "Remove Item",
         `Are you sure you want to remove "${itemName}" from your cart?`,
-        () => removeItem(itemId)
+        () => removeItem(itemId),
       );
     },
-    [cart.items, removeItem]
+    [cart.items, removeItem],
   );
 
   const handleClearCart = useCallback(() => {
     showConfirmation(
       "Clear Cart",
       "Are you sure you want to remove all items from your cart?",
-      () => clearCart()
+      () => clearCart(),
     );
   }, [clearCart]);
 
@@ -140,7 +145,7 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
         navigation.navigate("ItemDetails", { itemId: item.item.id });
       }
     },
-    [navigation]
+    [navigation],
   );
 
   const renderHeader = () => (
@@ -237,7 +242,7 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
     return (
       <View style={styles.loadingContainer}>
         {renderHeader()}
-        <Loading message="Loading your cart..." />
+        <Loading />
       </View>
     );
   }

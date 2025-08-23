@@ -16,7 +16,7 @@ import { Text, Searchbar } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { RouteProp } from "@react-navigation/native";
+import { RouteProp, CommonActions } from "@react-navigation/native";
 
 import { Loading, Toast } from "../../components/common";
 import { Item, StudentStackParamList } from "@/types";
@@ -235,7 +235,14 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
 
             <TouchableOpacity
               style={styles.cartButton}
-              onPress={() => navigation.navigate("Cart")}
+              onPress={() =>
+                navigation.getParent()?.dispatch(
+                  CommonActions.navigate({
+                    name: "CartTab",
+                    params: { screen: "Cart" },
+                  }),
+                )
+              }
             >
               <LinearGradient
                 colors={[
@@ -397,7 +404,13 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
                     addItem(item, 1);
                     showSuccess(`${item.name} added to cart!`, 2500, {
                       label: "View Cart",
-                      onPress: () => navigation.navigate("Cart"),
+                      onPress: () =>
+                        navigation.getParent()?.dispatch(
+                          CommonActions.navigate({
+                            name: "CartTab",
+                            params: { screen: "Cart" },
+                          }),
+                        ),
                     });
                   } catch (error) {
                     console.error("Error adding item to cart:", error);
