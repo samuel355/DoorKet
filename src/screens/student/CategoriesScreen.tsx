@@ -154,38 +154,52 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
     <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
       <LinearGradient
         colors={[
+          ColorPalette.primary[700],
           ColorPalette.primary[600],
           ColorPalette.primary[500],
-          ColorPalette.secondary[500],
-          ColorPalette.accent[500],
         ]}
-        locations={[0, 0.4, 0.7, 1]}
+        locations={[0, 0.6, 1]}
         style={styles.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Floating decorative elements */}
+        {/* Floating decorative elements with gradient accents */}
         <Animated.View
           style={[
             styles.floatingElement,
             styles.element1,
             { transform: [{ translateY: floatY }] },
           ]}
-        />
+        >
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
+            style={styles.elementGradient}
+          />
+        </Animated.View>
         <Animated.View
           style={[
             styles.floatingElement,
             styles.element2,
             { transform: [{ translateY: floatY }] },
           ]}
-        />
+        >
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0.08)"]}
+            style={styles.elementGradient}
+          />
+        </Animated.View>
         <Animated.View
           style={[
             styles.floatingElement,
             styles.element3,
             { transform: [{ translateY: floatY }] },
           ]}
-        />
+        >
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.10)", "rgba(255, 255, 255, 0.06)"]}
+            style={styles.elementGradient}
+          />
+        </Animated.View>
 
         <SafeAreaView style={styles.headerContent}>
           <View style={styles.headerTop}>
@@ -195,8 +209,8 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
             >
               <LinearGradient
                 colors={[
-                  "rgba(255, 255, 255, 0.2)",
-                  "rgba(255, 255, 255, 0.1)",
+                  "rgba(255, 255, 255, 0.25)",
+                  "rgba(255, 255, 255, 0.15)",
                 ]}
                 style={styles.headerButton}
               >
@@ -219,8 +233,8 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
             >
               <LinearGradient
                 colors={[
-                  "rgba(255, 255, 255, 0.2)",
-                  "rgba(255, 255, 255, 0.1)",
+                  "rgba(255, 255, 255, 0.25)",
+                  "rgba(255, 255, 255, 0.15)",
                 ]}
                 style={styles.headerButton}
               >
@@ -273,27 +287,27 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
       <TouchableOpacity onPress={() => handleCategoryPress(category)}>
         <LinearGradient
           colors={[
-            `${category.color_code || ColorPalette.primary[500]}20`,
-            `${category.color_code || ColorPalette.primary[500]}10`,
             ColorPalette.pure.white,
+            ColorPalette.primary[50] || "#fafafa",
           ]}
           style={styles.categoryGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
           <View style={styles.categoryContent}>
-            <View
-              style={[
-                styles.categoryIcon,
-                {
-                  backgroundColor: `${category.color_code || ColorPalette.primary[500]}15`,
-                },
+            <LinearGradient
+              colors={[
+                `${category.color_code || ColorPalette.primary[500]}20`,
+                `${category.color_code || ColorPalette.primary[500]}08`,
               ]}
+              style={[styles.categoryIcon]}
             >
               <Ionicons
                 name={(category.icon_name as any) || "grid"}
-                size={32}
-                color={category.color_code || ColorPalette.primary[500]}
+                size={28}
+                color={category.color_code || ColorPalette.primary[600]}
               />
-            </View>
+            </LinearGradient>
 
             <View style={styles.categoryInfo}>
               <Text style={styles.categoryName} numberOfLines={2}>
@@ -308,16 +322,13 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }) => {
 
             <View style={styles.categoryArrow}>
               <LinearGradient
-                colors={[
-                  `${category.color_code || ColorPalette.primary[500]}20`,
-                  `${category.color_code || ColorPalette.primary[500]}10`,
-                ]}
+                colors={[ColorPalette.primary[100], ColorPalette.primary[50]]}
                 style={styles.arrowContainer}
               >
                 <Ionicons
                   name="chevron-forward"
-                  size={20}
-                  color={category.color_code || ColorPalette.primary[500]}
+                  size={18}
+                  color={ColorPalette.primary[600]}
                 />
               </LinearGradient>
             </View>
@@ -414,7 +425,11 @@ const styles = StyleSheet.create({
   },
   floatingElement: {
     position: "absolute",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.full,
+    overflow: "hidden",
+  },
+  elementGradient: {
+    flex: 1,
     borderRadius: borderRadius.full,
   },
   element1: {
@@ -498,7 +513,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     paddingTop: 10,
-    marginBottom: 45
+    marginBottom: 45,
   },
   scrollContent: {
     paddingBottom: spacing.xxxxl,
@@ -515,9 +530,9 @@ const styles = StyleSheet.create({
   },
   categoryGradient: {
     borderRadius: borderRadius.lg,
-    elevation: 4,
-    shadowColor: "rgba(0, 0, 0, 0.1)",
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    shadowColor: "rgba(124, 115, 240, 0.15)",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 8,
   },
@@ -527,9 +542,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   categoryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
     marginRight: spacing.md,
@@ -551,9 +566,9 @@ const styles = StyleSheet.create({
   },
   categoryArrow: {},
   arrowContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -573,6 +588,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(124, 115, 240, 0.08)",
   },
   emptyIcon: {
     width: 120,

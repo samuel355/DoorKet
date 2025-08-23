@@ -2,6 +2,7 @@
 export const ColorPalette = {
   // Primary Brand Colors - Modern blue-purple gradient
   primary: {
+    25: "#f0f4ff",
     50: "#f0f4ff",
     100: "#e0e9ff",
     200: "#c7d6fe",

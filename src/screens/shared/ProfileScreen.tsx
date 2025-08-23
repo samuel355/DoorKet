@@ -294,38 +294,52 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
       <LinearGradient
         colors={[
+          ColorPalette.primary[700],
           ColorPalette.primary[600],
           ColorPalette.primary[500],
-          ColorPalette.secondary[500],
-          ColorPalette.accent[500],
         ]}
-        locations={[0, 0.4, 0.7, 1]}
+        locations={[0, 0.6, 1]}
         style={styles.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Floating decorative elements */}
+        {/* Floating decorative elements with gradient accents */}
         <Animated.View
           style={[
             styles.floatingElement,
             styles.element1,
             { transform: [{ translateY: floatY }] },
           ]}
-        />
+        >
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
+            style={styles.elementGradient}
+          />
+        </Animated.View>
         <Animated.View
           style={[
             styles.floatingElement,
             styles.element2,
             { transform: [{ translateY: floatY }] },
           ]}
-        />
+        >
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0.08)"]}
+            style={styles.elementGradient}
+          />
+        </Animated.View>
         <Animated.View
           style={[
             styles.floatingElement,
             styles.element3,
             { transform: [{ translateY: floatY }] },
           ]}
-        />
+        >
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.10)", "rgba(255, 255, 255, 0.06)"]}
+            style={styles.elementGradient}
+          />
+        </Animated.View>
 
         <SafeAreaView style={styles.headerContent}>
           <View style={styles.headerTop}>
@@ -335,8 +349,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             >
               <LinearGradient
                 colors={[
-                  "rgba(255, 255, 255, 0.2)",
-                  "rgba(255, 255, 255, 0.1)",
+                  "rgba(255, 255, 255, 0.25)",
+                  "rgba(255, 255, 255, 0.15)",
                 ]}
                 style={styles.headerButton}
               >
@@ -359,8 +373,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 >
                   <LinearGradient
                     colors={[
-                      "rgba(255, 255, 255, 0.2)",
-                      "rgba(255, 255, 255, 0.1)",
+                      "rgba(255, 255, 255, 0.25)",
+                      "rgba(255, 255, 255, 0.15)",
                     ]}
                     style={styles.headerButton}
                   >
@@ -375,8 +389,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 >
                   <LinearGradient
                     colors={[
-                      "rgba(255, 255, 255, 0.2)",
-                      "rgba(255, 255, 255, 0.1)",
+                      "rgba(255, 255, 255, 0.25)",
+                      "rgba(255, 255, 255, 0.15)",
                     ]}
                     style={styles.headerButton}
                   >
@@ -396,8 +410,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               >
                 <LinearGradient
                   colors={[
-                    "rgba(255, 255, 255, 0.2)",
-                    "rgba(255, 255, 255, 0.1)",
+                    "rgba(255, 255, 255, 0.25)",
+                    "rgba(255, 255, 255, 0.15)",
                   ]}
                   style={styles.headerButton}
                 >
@@ -537,21 +551,33 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         onPress={() => navigation.navigate("Settings")}
       >
         <LinearGradient
-          colors={[ColorPalette.info[100], ColorPalette.info[50]]}
+          colors={[
+            ColorPalette.primary[50],
+            ColorPalette.primary[25] || "#f0f4ff",
+          ]}
           style={styles.actionGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
         >
-          <Ionicons
-            name="settings-outline"
-            size={24}
-            color={ColorPalette.info[600]}
-          />
-          <Text style={[styles.actionText, { color: ColorPalette.info[600] }]}>
+          <LinearGradient
+            colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
+            style={styles.actionIconContainer}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={20}
+              color={ColorPalette.pure.white}
+            />
+          </LinearGradient>
+          <Text
+            style={[styles.actionText, { color: ColorPalette.primary[700] }]}
+          >
             Settings
           </Text>
           <Ionicons
             name="chevron-forward"
-            size={20}
-            color={ColorPalette.info[600]}
+            size={18}
+            color={ColorPalette.primary[400]}
           />
         </LinearGradient>
       </TouchableOpacity>
@@ -561,44 +587,66 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         onPress={() => navigation.navigate("OrderHistory")}
       >
         <LinearGradient
-          colors={[ColorPalette.secondary[100], ColorPalette.secondary[50]]}
+          colors={[
+            ColorPalette.primary[50],
+            ColorPalette.primary[100] || "#f0f4ff",
+          ]}
           style={styles.actionGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
         >
-          <Ionicons
-            name="receipt-outline"
-            size={24}
-            color={ColorPalette.secondary[600]}
-          />
+          <LinearGradient
+            colors={[ColorPalette.accent[500], ColorPalette.accent[600]]}
+            style={styles.actionIconContainer}
+          >
+            <Ionicons
+              name="receipt-outline"
+              size={20}
+              color={ColorPalette.pure.white}
+            />
+          </LinearGradient>
           <Text
-            style={[styles.actionText, { color: ColorPalette.secondary[600] }]}
+            style={[styles.actionText, { color: ColorPalette.primary[700] }]}
           >
             Order History
           </Text>
           <Ionicons
             name="chevron-forward"
-            size={20}
-            color={ColorPalette.secondary[600]}
+            size={18}
+            color={ColorPalette.primary[400]}
           />
         </LinearGradient>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
         <LinearGradient
-          colors={[ColorPalette.error[100], ColorPalette.error[50]]}
+          colors={[
+            ColorPalette.primary[50],
+            ColorPalette.primary[25] || "#f0f4ff",
+          ]}
           style={styles.actionGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
         >
-          <Ionicons
-            name="log-out-outline"
-            size={24}
-            color={ColorPalette.error[600]}
-          />
-          <Text style={[styles.actionText, { color: ColorPalette.error[600] }]}>
+          <LinearGradient
+            colors={[ColorPalette.error[500], ColorPalette.error[600]]}
+            style={styles.actionIconContainer}
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={20}
+              color={ColorPalette.pure.white}
+            />
+          </LinearGradient>
+          <Text
+            style={[styles.actionText, { color: ColorPalette.primary[700] }]}
+          >
             Sign Out
           </Text>
           <Ionicons
             name="chevron-forward"
-            size={20}
-            color={ColorPalette.error[600]}
+            size={18}
+            color={ColorPalette.primary[400]}
           />
         </LinearGradient>
       </TouchableOpacity>
@@ -711,7 +759,11 @@ const styles = StyleSheet.create({
   },
   floatingElement: {
     position: "absolute",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.full,
+    overflow: "hidden",
+  },
+  elementGradient: {
+    flex: 1,
     borderRadius: borderRadius.full,
   },
   element1: {
@@ -953,20 +1005,29 @@ const styles = StyleSheet.create({
   actionGradient: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    elevation: 2,
-    shadowColor: "rgba(0, 0, 0, 0.1)",
-    shadowOffset: { width: 0, height: 1 },
+    borderRadius: borderRadius.lg,
+    elevation: 3,
+    shadowColor: "rgba(0, 0, 0, 0.08)",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 4,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(124, 115, 240, 0.1)",
+  },
+  actionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: spacing.sm,
   },
   actionText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
-    marginLeft: spacing.sm,
   },
 });
 
