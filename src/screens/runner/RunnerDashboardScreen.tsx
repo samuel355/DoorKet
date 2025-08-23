@@ -262,7 +262,7 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
             <View style={[styles.floatingOrb, styles.orb3]} />
           </View>
 
-          <View style={styles.heroContent}>
+          <View style={[styles.heroContent]}>
             <View style={styles.greetingSection}>
               <Text style={styles.greeting}>{getGreeting()},</Text>
               <Text style={styles.userName}>
@@ -275,23 +275,23 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
 
             <View style={styles.heroStatsContainer}>
               <View style={styles.heroStatCard}>
-                <BlurView intensity={20} tint="light" style={styles.blurCard}>
+                <View style={styles.blurCard}>
                   <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
                   <Text style={styles.heroStatValue}>
                     {formatCurrency(stats.total_earnings || 0)}
                   </Text>
                   <Text style={styles.heroStatLabel}>Total Earnings</Text>
-                </BlurView>
+                </View>
               </View>
 
               <View style={styles.heroStatCard}>
-                <BlurView intensity={20} tint="light" style={styles.blurCard}>
+                <View style={styles.blurCard}>
                   <Ionicons name="star" size={24} color="#FFD700" />
                   <Text style={styles.heroStatValue}>
                     {stats.average_rating?.toFixed(1) || "0.0"}
                   </Text>
                   <Text style={styles.heroStatLabel}>Rating</Text>
-                </BlurView>
+                </View>
               </View>
             </View>
           </View>
@@ -729,6 +729,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginTop: -59
   },
   scrollContent: {
     paddingBottom: 100,
@@ -803,18 +804,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingBottom: 24,
+    marginBottom: 14,
   },
   heroStatCard: {
     flex: 1,
     marginHorizontal: 6,
   },
   blurCard: {
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
+    zIndex: 10,
   },
   heroStatValue: {
     fontSize: 20,

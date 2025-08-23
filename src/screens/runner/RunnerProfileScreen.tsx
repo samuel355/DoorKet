@@ -2,29 +2,22 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
   Animated,
   Alert,
-  Platform,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text } from "react-native-paper";
+import { Text, Portal, Dialog, Button, TextInput } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { RunnerStackParamList, User } from "@/types";
+import { RunnerStackParamList } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { ColorPalette } from "../../theme/colors";
-import {
-  borderRadius,
-  spacing,
-  createShadows,
-  createTypography,
-} from "../../theme/styling";
 
 type RunnerProfileNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -45,11 +38,11 @@ interface ProfileStats {
   badge: string;
 }
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 const HEADER_HEIGHT = 320;
 
 const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
-  const { user, profile, signOut, updateProfile } = useAuth();
+  const { profile, signOut, updateProfile } = useAuth();
 
   const [stats, setStats] = useState<ProfileStats>({
     totalDeliveries: 0,
@@ -65,7 +58,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editedProfile, setEditedProfile] = useState({
     full_name: profile?.full_name || "",
-    phone_number: profile?.phone_number || "",
+    phone_number: (profile as any)?.phone_number || "",
     email: profile?.email || "",
   });
 
@@ -80,16 +73,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const switchAnim = useRef(new Animated.Value(0)).current;
 
-  const shadows = createShadows({
-    shadow: { medium: "rgba(0, 0, 0, 0.1)" },
-  } as any);
-
-  useEffect(() => {
-    loadProfileData();
-    startAnimations();
-  }, []);
-
-  const startAnimations = () => {
+  const startAnimations = useCallback(() => {
     // Header animation
     Animated.timing(headerAnim, {
       toValue: 1,
@@ -107,31 +91,36 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
       }),
     );
 
-    Animated.stagger(80, cardStagger).start();
+    Animated.stagger(100, cardStagger).start();
 
-    // Pulse animation for avatar
+    // Pulse animation for active status
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 2000,
+          toValue: 1.2,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 1000,
           useNativeDriver: true,
         }),
       ]),
     ).start();
 
-    // Switch animation
+    // Availability switch animation
     Animated.timing(switchAnim, {
       toValue: isAvailable ? 1 : 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  };
+  }, [headerAnim, cardAnimations, pulseAnim, switchAnim, isAvailable]);
+
+  useEffect(() => {
+    loadProfileData();
+    startAnimations();
+  }, [startAnimations]);
 
   const loadProfileData = async () => {
     try {
@@ -186,7 +175,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
       await updateProfile(editedProfile);
       setShowEditDialog(false);
       Alert.alert("Success", "Profile updated successfully!");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update profile");
     }
   };
@@ -256,12 +245,13 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
         ]}
       >
         <LinearGradient
-          colors={[
-            ColorPalette.primary[400],
-            ColorPalette.primary[500],
-            ColorPalette.primary[600],
-            ColorPalette.primary[700],
-          ]}
+          colors={
+            [
+              ColorPalette.primary[400],
+              ColorPalette.primary[500],
+              ColorPalette.primary[600],
+            ] as const
+          }
           style={styles.headerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -317,9 +307,9 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
                     tint="light"
                     style={styles.avatarBlur}
                   >
-                    {profile?.avatar_url ? (
+                    {(profile as any)?.avatar_url ? (
                       <Image
-                        source={{ uri: profile.avatar_url }}
+                        source={{ uri: (profile as any).avatar_url }}
                         style={styles.avatarImage}
                       />
                     ) : (
@@ -423,7 +413,10 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
             value: stats.totalDeliveries.toString(),
             icon: "bag-check-outline",
             color: ColorPalette.primary[500],
-            gradient: [ColorPalette.primary[100], ColorPalette.primary[50]],
+            gradient: [
+              ColorPalette.primary[100],
+              ColorPalette.primary[50],
+            ] as const,
             animation: cardAnimations[0],
           },
           {
@@ -431,7 +424,10 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
             value: `${stats.completionRate.toFixed(1)}%`,
             icon: "checkmark-circle-outline",
             color: ColorPalette.success[500],
-            gradient: [ColorPalette.success[100], ColorPalette.success[50]],
+            gradient: [
+              ColorPalette.success[100],
+              ColorPalette.success[50],
+            ] as const,
             animation: cardAnimations[1],
           },
           {
@@ -439,7 +435,10 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
             value: `⭐ ${stats.averageRating.toFixed(1)}`,
             icon: "star-outline",
             color: ColorPalette.warning[500],
-            gradient: [ColorPalette.warning[100], ColorPalette.warning[50]],
+            gradient: [
+              ColorPalette.warning[100],
+              ColorPalette.warning[50],
+            ] as const,
             animation: cardAnimations[2],
           },
           {
@@ -447,7 +446,10 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
             value: `${stats.streak} days`,
             icon: "flame-outline",
             color: ColorPalette.accent[500],
-            gradient: [ColorPalette.accent[100], ColorPalette.accent[50]],
+            gradient: [
+              ColorPalette.accent[100],
+              ColorPalette.accent[50],
+            ] as const,
             animation: cardAnimations[3],
           },
         ].map((stat, index) => (
@@ -598,7 +600,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
     >
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <LinearGradient
-          colors={[ColorPalette.error[500], ColorPalette.error[600]]}
+          colors={[ColorPalette.error[500], ColorPalette.error[600]] as const}
           style={styles.signOutGradient}
         >
           <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
@@ -619,7 +621,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
           <TextInput
             label="Full Name"
             value={editedProfile.full_name}
-            onChangeText={(text) =>
+            onChangeText={(text: string) =>
               setEditedProfile({ ...editedProfile, full_name: text })
             }
             mode="outlined"
@@ -628,7 +630,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
           <TextInput
             label="Phone Number"
             value={editedProfile.phone_number}
-            onChangeText={(text) =>
+            onChangeText={(text: string) =>
               setEditedProfile({ ...editedProfile, phone_number: text })
             }
             mode="outlined"
@@ -637,7 +639,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
           <TextInput
             label="Email"
             value={editedProfile.email}
-            onChangeText={(text) =>
+            onChangeText={(text: string) =>
               setEditedProfile({ ...editedProfile, email: text })
             }
             mode="outlined"
@@ -902,7 +904,14 @@ const styles = StyleSheet.create({
   statCardGradient: {
     padding: 20,
     alignItems: "center",
-    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.08)" } } as any).md,
+    shadowColor: "rgba(0, 0, 0, 0.08)",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   statCardHeader: {
     marginBottom: 16,
@@ -942,7 +951,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   menuItemGradient: {
-    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.06)" } } as any).sm,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   menuItemContent: {
     flexDirection: "row",

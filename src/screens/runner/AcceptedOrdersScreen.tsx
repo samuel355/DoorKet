@@ -20,12 +20,154 @@ import { RunnerStackParamList, Order } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
-import {
-  borderRadius,
-  spacing,
-  createShadows,
-  createTypography,
-} from "../../theme/styling";
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
+interface OrderCardProps {
+  order: Order;
+  index: number;
+  onStartDelivery: (orderId: string) => void;
+  onViewDetails: (orderId: string) => void;
+  formatCurrency: (amount: number) => string;
+  formatTime: (dateString: string) => string;
+}
+
+const OrderCard: React.FC<OrderCardProps> = ({
+  order,
+  index,
+  onStartDelivery,
+  onViewDetails,
+  formatCurrency,
+  formatTime,
+}) => {
+  const cardAnimation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(cardAnimation, {
+      toValue: 1,
+      duration: 600,
+      delay: index * 100,
+      useNativeDriver: true,
+    }).start();
+  }, [cardAnimation, index]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.orderCard,
+        {
+          opacity: cardAnimation,
+          transform: [
+            {
+              translateY: Animated.multiply(
+                Animated.subtract(1, cardAnimation),
+                50,
+              ),
+            },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onViewDetails(order.id)}
+      >
+        <LinearGradient
+          colors={["#FFFFFF", "#FEFEFE"] as const}
+          style={styles.orderCardGradient}
+        >
+          <View style={styles.orderCardContent}>
+            <View style={styles.orderCardHeader}>
+              <View style={styles.orderInfoSection}>
+                <Text style={styles.orderNumber}>#{order.order_number}</Text>
+                <Text style={styles.orderTime}>
+                  {formatTime(order.created_at)}
+                </Text>
+              </View>
+              <View style={styles.orderAmount}>
+                <Text style={styles.orderAmountText}>
+                  {formatCurrency(order.total_amount)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.studentInfo}>
+              <View style={styles.studentAvatar}>
+                <Ionicons
+                  name="person"
+                  size={20}
+                  color={ColorPalette.primary[500]}
+                />
+              </View>
+              <View style={styles.studentDetails}>
+                <Text style={styles.studentName}>
+                  {order.student?.full_name || "Unknown Student"}
+                </Text>
+                <Text style={styles.studentPhone}>
+                  {(order.student as any)?.phone_number || "No phone"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.orderDetails}>
+              <View style={styles.orderDetailRow}>
+                <Ionicons
+                  name="bag-outline"
+                  size={16}
+                  color={ColorPalette.neutral[600]}
+                />
+                <Text style={styles.orderDetailText}>
+                  {(order as any).items?.length || 0} items
+                </Text>
+              </View>
+              <View style={styles.orderDetailRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={ColorPalette.neutral[600]}
+                />
+                <Text style={styles.orderDetailText} numberOfLines={1}>
+                  {order.delivery_address}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.orderActions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => onStartDelivery(order.id)}
+              >
+                <LinearGradient
+                  colors={
+                    [
+                      ColorPalette.primary[500],
+                      ColorPalette.primary[600],
+                    ] as const
+                  }
+                  style={styles.actionButtonGradient}
+                >
+                  <Ionicons name="play" size={18} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Start Delivery</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.detailsButton}
+                onPress={() => onViewDetails(order.id)}
+              >
+                <Text style={styles.detailsButtonText}>View Details</Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={16}
+                  color={ColorPalette.primary[500]}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 type AcceptedOrdersNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -36,7 +178,7 @@ interface AcceptedOrdersProps {
   navigation: AcceptedOrdersNavigationProp;
 }
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 const HEADER_HEIGHT = 120;
 
 const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
@@ -46,7 +188,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
+
   const [selectedTab, setSelectedTab] = useState<
     "active" | "shopping" | "delivering"
   >("active");
@@ -57,19 +199,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
   const tabAnim = useRef(new Animated.Value(0)).current;
   const listAnim = useRef(new Animated.Value(0)).current;
 
-  const shadows = createShadows({
-    shadow: { medium: "rgba(0, 0, 0, 0.1)" },
-  } as any);
-
-  useEffect(() => {
-    loadOrders();
-    startAnimations();
-
-    const interval = setInterval(loadOrders, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const startAnimations = () => {
+  const startAnimations = useCallback(() => {
     Animated.stagger(200, [
       Animated.timing(headerAnim, {
         toValue: 1,
@@ -87,9 +217,9 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
         useNativeDriver: true,
       }),
     ]).start();
-  };
+  }, [headerAnim, tabAnim, listAnim]);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -104,22 +234,35 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadOrders();
+    startAnimations();
+
+    const interval = setInterval(loadOrders, 30000);
+    return () => clearInterval(interval);
+  }, [loadOrders, startAnimations]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadOrders();
-  }, []);
+  }, [loadOrders]);
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = async (
+    orderId: string,
+    status: "shopping" | "delivering" | "delivered",
+  ) => {
     try {
-      setUpdatingOrder(orderId);
-      const result = await OrderService.updateOrderStatus(orderId, newStatus);
+      const result = await OrderService.updateOrderStatus(
+        orderId,
+        status as any,
+      );
 
-      if (result.success) {
+      if (result.data) {
         await loadOrders();
 
-        if (newStatus === "completed") {
+        if (status === "delivered") {
           Alert.alert(
             "Order Completed! 🎉",
             "Great job! The order has been marked as completed.",
@@ -127,14 +270,16 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
           );
         }
       } else {
-        Alert.alert("Error", result.message || "Failed to update order status");
+        Alert.alert("Error", "Failed to update order status");
       }
     } catch (error) {
       Alert.alert("Error", "An unexpected error occurred");
       console.error("Update order error:", error);
-    } finally {
-      setUpdatingOrder(null);
     }
+  };
+
+  const startDelivery = (orderId: string) => {
+    updateOrderStatus(orderId, "delivering");
   };
 
   const formatCurrency = (amount: number) => {
@@ -152,36 +297,6 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
     return `${Math.floor(diffInHours / 24)}d ago`;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "accepted":
-        return ColorPalette.info[500];
-      case "shopping":
-        return ColorPalette.accent[500];
-      case "delivering":
-        return ColorPalette.secondary[500];
-      case "completed":
-        return ColorPalette.success[500];
-      default:
-        return ColorPalette.neutral[500];
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "accepted":
-        return "checkmark-circle-outline";
-      case "shopping":
-        return "bag-outline";
-      case "delivering":
-        return "navigate-outline";
-      case "completed":
-        return "trophy-outline";
-      default:
-        return "ellipse-outline";
-    }
   };
 
   const getFilteredOrders = () => {
@@ -355,286 +470,6 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
     </Animated.View>
   );
 
-  const renderOrderCard = ({
-    item: order,
-    index,
-  }: {
-    item: Order;
-    index: number;
-  }) => {
-    const isUpdating = updatingOrder === order.id;
-    const statusColor = getStatusColor(order.status);
-    const statusIcon = getStatusIcon(order.status);
-
-    const cardAnimation = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      Animated.timing(cardAnimation, {
-        toValue: 1,
-        duration: 600,
-        delay: index * 100,
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
-    const getNextAction = () => {
-      switch (order.status) {
-        case "accepted":
-          return {
-            label: "Start Shopping",
-            action: () =>
-              navigation.navigate("ShoppingList", { orderId: order.id }),
-            icon: "bag-outline",
-            gradient: [ColorPalette.primary[500], ColorPalette.primary[600]],
-          };
-        case "shopping":
-          return {
-            label: "Continue Shopping",
-            action: () =>
-              navigation.navigate("ShoppingList", { orderId: order.id }),
-            icon: "bag-check-outline",
-            gradient: [ColorPalette.accent[500], ColorPalette.accent[600]],
-          };
-        case "delivering":
-          return {
-            label: "Continue Delivery",
-            action: () =>
-              navigation.navigate("DeliveryNavigation", { orderId: order.id }),
-            icon: "navigate-outline",
-            gradient: [ColorPalette.success[500], ColorPalette.success[600]],
-          };
-        default:
-          return null;
-      }
-    };
-
-    const nextAction = getNextAction();
-
-    return (
-      <Animated.View
-        style={[
-          styles.orderCard,
-          {
-            opacity: cardAnimation,
-            transform: [
-              {
-                translateY: Animated.multiply(
-                  Animated.subtract(1, cardAnimation),
-                  50,
-                ),
-              },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() =>
-            navigation.navigate("OrderDetails", { orderId: order.id })
-          }
-        >
-          <LinearGradient
-            colors={["#FFFFFF", "#FEFEFE"]}
-            style={styles.orderCardGradient}
-          >
-            <View style={styles.orderCardContent}>
-              {/* Header */}
-              <View style={styles.orderCardHeader}>
-                <View style={styles.orderInfoSection}>
-                  <Text style={styles.orderNumber}>#{order.order_number}</Text>
-                  <Text style={styles.orderTime}>
-                    {formatTimeAgo(order.created_at)}
-                  </Text>
-                </View>
-                <View style={styles.statusSection}>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: statusColor },
-                    ]}
-                  >
-                    <Ionicons
-                      name={statusIcon as any}
-                      size={14}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.statusText}>
-                      {order.status.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Student Info */}
-              <View style={styles.studentInfo}>
-                <View style={styles.studentAvatar}>
-                  <Ionicons
-                    name="person"
-                    size={20}
-                    color={ColorPalette.secondary[500]}
-                  />
-                </View>
-                <View style={styles.studentDetails}>
-                  <Text style={styles.studentName}>
-                    {order.student?.full_name || "Unknown Student"}
-                  </Text>
-                  <Text style={styles.studentContact}>
-                    {order.student?.phone_number || "No contact"}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.callButton}
-                  onPress={() => {
-                    // Add call functionality
-                    Alert.alert(
-                      "Call Student",
-                      `Call ${order.student?.full_name}?`,
-                    );
-                  }}
-                >
-                  <Ionicons
-                    name="call-outline"
-                    size={20}
-                    color={ColorPalette.secondary[500]}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Order Details */}
-              <View style={styles.orderDetails}>
-                <View style={styles.orderDetailRow}>
-                  <Ionicons
-                    name="bag-outline"
-                    size={16}
-                    color={ColorPalette.neutral[600]}
-                  />
-                  <Text style={styles.orderDetailText}>
-                    {order.items?.length || 0} items •{" "}
-                    {formatCurrency(order.total_amount)}
-                  </Text>
-                </View>
-                <View style={styles.orderDetailRow}>
-                  <Ionicons
-                    name="location-outline"
-                    size={16}
-                    color={ColorPalette.neutral[600]}
-                  />
-                  <Text style={styles.orderDetailText} numberOfLines={1}>
-                    {order.delivery_address}
-                  </Text>
-                </View>
-                {order.special_instructions && (
-                  <View style={styles.orderDetailRow}>
-                    <Ionicons
-                      name="chatbubble-outline"
-                      size={16}
-                      color={ColorPalette.neutral[600]}
-                    />
-                    <Text style={styles.orderDetailText} numberOfLines={2}>
-                      {order.special_instructions}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Progress Indicator */}
-              <View style={styles.progressContainer}>
-                <Text style={styles.progressLabel}>Order Progress</Text>
-                <View style={styles.progressBar}>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width:
-                            order.status === "accepted"
-                              ? "25%"
-                              : order.status === "shopping"
-                                ? "50%"
-                                : order.status === "delivering"
-                                  ? "75%"
-                                  : "100%",
-                          backgroundColor: statusColor,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.actionButtons}>
-                {nextAction && (
-                  <TouchableOpacity
-                    style={styles.primaryActionButton}
-                    onPress={nextAction.action}
-                    disabled={isUpdating}
-                  >
-                    <LinearGradient
-                      colors={nextAction.gradient}
-                      style={styles.primaryActionGradient}
-                    >
-                      <Ionicons
-                        name={nextAction.icon as any}
-                        size={18}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.primaryActionText}>
-                        {nextAction.label}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={styles.secondaryActionButton}
-                  onPress={() =>
-                    navigation.navigate("OrderDetails", { orderId: order.id })
-                  }
-                >
-                  <Text style={styles.secondaryActionText}>View Details</Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={16}
-                    color={ColorPalette.secondary[500]}
-                  />
-                </TouchableOpacity>
-
-                {order.status === "delivering" && (
-                  <TouchableOpacity
-                    style={[
-                      styles.completeButton,
-                      isUpdating && styles.completeButtonLoading,
-                    ]}
-                    onPress={() => updateOrderStatus(order.id, "completed")}
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? (
-                      <Text style={styles.completeButtonText}>
-                        Completing...
-                      </Text>
-                    ) : (
-                      <>
-                        <Ionicons
-                          name="checkmark-done"
-                          size={16}
-                          color={ColorPalette.success[500]}
-                        />
-                        <Text style={styles.completeButtonText}>
-                          Mark Complete
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
   const renderEmptyState = () => (
     <Animated.View
       style={[
@@ -692,10 +527,21 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
       >
         {renderTabs()}
 
-        <FlatList
-          data={filteredOrders}
-          keyExtractor={(item) => item.id}
-          renderItem={renderOrderCard}
+        <AnimatedFlatList
+          data={filteredOrders as any}
+          keyExtractor={(item) => (item as Order).id}
+          renderItem={({ item, index }) => (
+            <OrderCard
+              order={item as Order}
+              index={index}
+              onStartDelivery={startDelivery}
+              onViewDetails={(orderId: string) =>
+                navigation.navigate("OrderDetails", { orderId })
+              }
+              formatCurrency={formatCurrency}
+              formatTime={formatTimeAgo}
+            />
+          )}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -704,7 +550,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
               onRefresh={onRefresh}
               colors={[ColorPalette.secondary[500]]}
               tintColor={ColorPalette.secondary[500]}
-              progressViewOffset={HEADER_HEIGHT + 100}
+              progressViewOffset={HEADER_HEIGHT}
             />
           }
           scrollEventThrottle={16}
@@ -879,7 +725,14 @@ const styles = StyleSheet.create({
   orderCardGradient: {
     borderRadius: 20,
     padding: 20,
-    ...createShadows({ shadow: { medium: "rgba(0, 0, 0, 0.08)" } } as any).md,
+    shadowColor: "rgba(0, 0, 0, 0.08)",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   orderCardContent: {},
   orderCardHeader: {
@@ -1101,7 +954,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#FFFFFF",
-    marginLeft: 8,
+  },
+
+  // Missing OrderCard styles
+  orderAmount: {
+    alignItems: "flex-end",
+  },
+  orderAmountText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: ColorPalette.success[600],
+  },
+
+  studentPhone: {
+    fontSize: 14,
+    color: ColorPalette.neutral[600],
+    marginTop: 2,
+  },
+  orderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginRight: 12,
+  },
+  actionButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginLeft: 4,
+  },
+  detailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  detailsButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: ColorPalette.primary[500],
+    marginRight: 4,
   },
 });
 

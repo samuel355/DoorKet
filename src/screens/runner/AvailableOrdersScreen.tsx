@@ -14,7 +14,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, Searchbar } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList, Order } from "@/types";
 import { useAuth } from "@/store/authStore";
@@ -434,13 +433,11 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
                 style={styles.backButton}
                 onPress={() => navigation.goBack()}
               >
-                <BlurView
-                  intensity={20}
-                  tint="light"
+                <View
                   style={styles.backButtonBlur}
                 >
                   <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </BlurView>
+                </View>
               </TouchableOpacity>
 
               <View style={styles.headerTitleContainer}>
@@ -457,13 +454,11 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
                   loadOrders();
                 }}
               >
-                <BlurView
-                  intensity={20}
-                  tint="light"
+                <View
                   style={styles.refreshButtonBlur}
                 >
                   <Ionicons name="refresh" size={20} color="#FFFFFF" />
-                </BlurView>
+                </View>
               </TouchableOpacity>
             </View>
           </SafeAreaView>
@@ -758,8 +753,9 @@ const styles = StyleSheet.create({
 
   // Search and Filters
   searchContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     marginBottom: 20,
+    marginTop: 32,
   },
   searchBarContainer: {
     marginBottom: 16,
@@ -769,10 +765,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     elevation: 0,
     borderWidth: 1,
-    borderColor: ColorPalette.neutral[200],
+    borderColor: ColorPalette.neutral[100],
   },
   searchInput: {
-    fontSize: 16,
+    fontSize: 14,
     color: ColorPalette.neutral[900],
   },
   filtersContainer: {
