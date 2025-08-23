@@ -29,6 +29,7 @@ import { spacing, borderRadius } from "@/src/theme/styling";
 import { showConfirmation, formatCurrency } from "@/src/utils";
 import { CommonActions } from "@react-navigation/native";
 import { useToast } from "@/src/hooks/useToast";
+import { APP_CONFIG } from "@/src/constants";
 
 type EnhancedCartScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -98,10 +99,19 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
 
   const handleCheckout = useCallback(() => {
     if (!canCheckout()) {
+      // Show specific reason why checkout is disabled
+      if (cart.items.length === 0) {
+        showInfo("Add items to your cart to proceed to checkout", 3000);
+      } else if (cart.total < APP_CONFIG.MIN_ORDER_AMOUNT) {
+        showInfo(
+          `Minimum order amount is ${formatCurrency(APP_CONFIG.MIN_ORDER_AMOUNT)}. Add ${formatCurrency(APP_CONFIG.MIN_ORDER_AMOUNT - cart.total)} more to proceed.`,
+          4000,
+        );
+      }
       return;
     }
     navigation.navigate("Checkout");
-  }, [navigation, canCheckout]);
+  }, [navigation, canCheckout, cart.items.length, cart.total, showInfo]);
 
   // Cart item handlers
   const handleQuantityChange = useCallback(
@@ -444,6 +454,7 @@ const styles = StyleSheet.create({
     borderTopColor: ColorPalette.neutral[200],
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    paddingBottom: spacing.xl + spacing.lg,
     shadowColor: ColorPalette.neutral[900],
     shadowOffset: {
       width: 0,

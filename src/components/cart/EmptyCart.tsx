@@ -8,7 +8,6 @@ import {
 import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import LottieView from "lottie-react-native";
 
 import { ColorPalette } from "@/src/theme/colors";
 import { spacing, borderRadius } from "@/src/theme/styling";

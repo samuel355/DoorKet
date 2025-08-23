@@ -507,9 +507,7 @@ export const useCartStore = create<CartState>()(
       canCheckout: (): boolean => {
         const cart = get().cart;
         return (
-          cart.items.length > 0 &&
-          cart.total >= APP_CONFIG.MIN_ORDER_AMOUNT &&
-          cart.delivery_address.trim().length > 0
+          cart.items.length > 0 && cart.total >= APP_CONFIG.MIN_ORDER_AMOUNT
         );
       },
 

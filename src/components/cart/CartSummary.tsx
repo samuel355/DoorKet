@@ -1,9 +1,5 @@
 import React from "react";
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-} from "react-native";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Text, Divider, Surface } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,6 +8,7 @@ import { Cart } from "@/types";
 import { formatCurrency } from "@/src/utils";
 import { ColorPalette } from "@/src/theme/colors";
 import { spacing, borderRadius } from "@/src/theme/styling";
+import { APP_CONFIG } from "@/src/constants";
 
 interface CartSummaryProps {
   cart: Cart;
@@ -37,9 +34,13 @@ const CartSummary: React.FC<CartSummaryProps> = ({
   const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
   const hasItems = cart.items.length > 0;
   const hasDeliveryAddress = cart.delivery_address.trim().length > 0;
+  const meetsMinimumAmount = cart.total >= APP_CONFIG.MIN_ORDER_AMOUNT;
 
   return (
-    <Surface style={[styles.container, compact && styles.compactContainer]} elevation={2}>
+    <Surface
+      style={[styles.container, compact && styles.compactContainer]}
+      elevation={2}
+    >
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
@@ -80,9 +81,7 @@ const CartSummary: React.FC<CartSummaryProps> = ({
         {/* Total */}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>
-            {formatCurrency(cart.total)}
-          </Text>
+          <Text style={styles.totalValue}>{formatCurrency(cart.total)}</Text>
         </View>
 
         {/* Delivery Info */}
@@ -104,14 +103,14 @@ const CartSummary: React.FC<CartSummaryProps> = ({
                   {cart.delivery_address}
                 </Text>
               ) : (
-                <Text style={styles.noAddress}>
-                  No delivery address set
-                </Text>
+                <Text style={styles.noAddress}>No delivery address set</Text>
               )}
 
               {cart.special_instructions && (
                 <View style={styles.instructionsContainer}>
-                  <Text style={styles.instructionsLabel}>Special Instructions:</Text>
+                  <Text style={styles.instructionsLabel}>
+                    Special Instructions:
+                  </Text>
                   <Text style={styles.instructions} numberOfLines={2}>
                     {cart.special_instructions}
                   </Text>
@@ -126,15 +125,18 @@ const CartSummary: React.FC<CartSummaryProps> = ({
           <TouchableOpacity
             style={[
               styles.checkoutButton,
-              (!canCheckout || !hasItems) && styles.checkoutButtonDisabled,
+              (!canCheckout || !hasItems || !meetsMinimumAmount) &&
+                styles.checkoutButtonDisabled,
             ]}
             onPress={onCheckout}
-            disabled={!canCheckout || !hasItems || loading}
+            disabled={
+              !canCheckout || !hasItems || !meetsMinimumAmount || loading
+            }
             activeOpacity={0.8}
           >
             <LinearGradient
               colors={
-                canCheckout && hasItems
+                canCheckout && hasItems && meetsMinimumAmount
                   ? [ColorPalette.primary[600], ColorPalette.primary[700]]
                   : [ColorPalette.neutral[300], ColorPalette.neutral[400]]
               }
@@ -165,35 +167,37 @@ const CartSummary: React.FC<CartSummaryProps> = ({
         )}
 
         {/* Checkout Requirements */}
-        {showCheckoutButton && (!canCheckout || !hasItems) && (
-          <View style={styles.requirementsContainer}>
-            {!hasItems && (
-              <View style={styles.requirement}>
-                <Ionicons
-                  name="alert-circle-outline"
-                  size={14}
-                  color={ColorPalette.warning[600]}
-                />
-                <Text style={styles.requirementText}>
-                  Add items to your cart to continue
-                </Text>
-              </View>
-            )}
+        {showCheckoutButton &&
+          (!canCheckout || !hasItems || !meetsMinimumAmount) && (
+            <View style={styles.requirementsContainer}>
+              {!hasItems && (
+                <View style={styles.requirement}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={14}
+                    color={ColorPalette.warning[600]}
+                  />
+                  <Text style={styles.requirementText}>
+                    Add items to your cart to continue
+                  </Text>
+                </View>
+              )}
 
-            {hasItems && !hasDeliveryAddress && (
-              <View style={styles.requirement}>
-                <Ionicons
-                  name="location-outline"
-                  size={14}
-                  color={ColorPalette.warning[600]}
-                />
-                <Text style={styles.requirementText}>
-                  Add delivery address to continue
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
+              {hasItems && !meetsMinimumAmount && (
+                <View style={styles.requirement}>
+                  <Ionicons
+                    name="cash-outline"
+                    size={14}
+                    color={ColorPalette.warning[600]}
+                  />
+                  <Text style={styles.requirementText}>
+                    Minimum order amount is{" "}
+                    {formatCurrency(APP_CONFIG.MIN_ORDER_AMOUNT)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
       </View>
     </Surface>
   );
@@ -210,6 +214,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+    paddingTop: spacing.lg
   },
   header: {
     flexDirection: "row",
@@ -323,6 +328,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    marginBottom: spacing.xxxxxl,
   },
   checkoutButtonDisabled: {
     shadowOpacity: 0,

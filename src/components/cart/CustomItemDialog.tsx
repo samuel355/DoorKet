@@ -303,7 +303,7 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
                       color={ColorPalette.primary[600]}
                     />
                     <Text style={styles.infoText}>
-                      Custom items allow you to request items that aren't in our
+                      Custom items allow you to request items that are not in our
                       catalog. Your runner will purchase the item within your
                       specified budget.
                     </Text>
