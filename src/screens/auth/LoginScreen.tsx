@@ -303,6 +303,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
             keyboardType="email-address"
             autoCapitalize="none"
             required
+            style={styles.input} 
             theme={{
               primary: ColorPalette.primary[500],
               background: ColorPalette.pure.white,
@@ -338,6 +339,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
             onRightIconPress={() => setShowPassword(!showPassword)}
             secureTextEntry={!showPassword}
             required
+            style={styles.input} 
             theme={{
               primary: ColorPalette.primary[500],
               background: ColorPalette.pure.white,
@@ -754,6 +756,13 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
     fontWeight: "500",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: ColorPalette.neutral[200],
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
   },
 });
 

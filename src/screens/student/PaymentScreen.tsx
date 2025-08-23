@@ -17,7 +17,6 @@ import {
   RadioButton,
   Divider,
   Surface,
-  useTheme,
 } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -27,6 +26,7 @@ import { Order, PaymentMethod, StudentStackParamList } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/supabase";
 import { PaymentService } from "@/services/payment";
+import { ColorPalette } from "../../theme/colors";
 
 type PaymentScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -51,7 +51,6 @@ interface PaymentStep {
 }
 
 const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
-  const theme = useTheme();
   const { orderId, amount } = route.params;
   const { user, profile } = useAuth();
 
@@ -259,7 +258,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                   <Ionicons
                     name={methodInfo.icon as any}
                     size={24}
-                    color={theme.colors.primary}
+                    color={ColorPalette.primary[500]}
                     style={styles.methodIcon}
                   />
                   <View style={styles.methodInfo}>
@@ -375,7 +374,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
   const renderProcessingState = () => (
     <View style={styles.processingContainer}>
-      <ActivityIndicator size="large" color={theme.colors.primary} />
+      <ActivityIndicator size="large" color={ColorPalette.primary[500]} />
       <Text style={styles.processingText}>{paymentStep.message}</Text>
       {selectedMethod === "momo" && (
         <Text style={styles.processingSubtext}>

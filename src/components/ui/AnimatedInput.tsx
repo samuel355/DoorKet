@@ -7,7 +7,8 @@ import {
   TextInputProps,
   TouchableOpacity,
 } from "react-native";
-import { TextInput, HelperText } from "react-native-paper";
+import { HelperText } from "react-native-paper";
+import { TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface AnimatedInputProps {
@@ -190,81 +191,71 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
             error && styles.errorBorder,
           ]}
         >
-          <TextInput
-            label={required ? `${label} *` : label}
-            value={value}
-            onChangeText={onChangeText}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            mode="outlined"
-            style={[styles.input, disabled && styles.disabled]}
-            error={hasValidError}
-            disabled={disabled}
-            editable={editable}
-            left={
-              leftIcon ? (
-                <View style={styles.iconContainer}>
-                  <Ionicons
-                    name={leftIcon}
-                    size={20}
-                    color={hasValidError ? theme.error : theme.primary}
-                  />
-                </View>
-              ) : undefined
-            }
-            right={
-              rightIcon ? (
-                <TouchableOpacity
-                  style={styles.iconContainer}
-                  onPress={onRightIconPress}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={rightIcon}
-                    size={20}
-                    color={hasValidError ? theme.error : theme.primary}
-                  />
-                </TouchableOpacity>
-              ) : value && !hasValidError && animated ? (
-                <Animated.View
-                  style={[
-                    styles.successIcon,
-                    {
-                      opacity: successAnimation,
-                      transform: [
-                        {
-                          scale: successAnimation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.5, 1],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <Ionicons name="checkmark-circle" size={20} color="#00b894" />
-                </Animated.View>
-              ) : undefined
-            }
-            theme={{
-              colors: {
-                primary: theme.primary,
-                background: theme.background,
-                surface: theme.surface,
-                onSurface: theme.text,
-                error: theme.error,
-              },
-            }}
-            placeholder={placeholder}
-            keyboardType={keyboardType}
-            autoComplete={autoComplete}
-            textContentType={textContentType}
-            autoCapitalize={autoCapitalize}
-            secureTextEntry={secureTextEntry}
-            multiline={multiline}
-            numberOfLines={numberOfLines}
-            maxLength={maxLength}
-          />
+          <View style={styles.inputRow}>
+            {leftIcon && (
+              <View style={styles.iconContainer}>
+                <Ionicons
+                  name={leftIcon}
+                  size={20}
+                  color={hasValidError ? theme.error : theme.primary}
+                />
+              </View>
+            )}
+            
+            <TextInput
+              value={value}
+              onChangeText={onChangeText}
+              style={[styles.input, disabled && styles.disabled]}
+              placeholder={required ? `${label} *` : label}
+              placeholderTextColor={theme.text + "80"}
+              keyboardType={keyboardType}
+              autoComplete={autoComplete}
+              textContentType={textContentType}
+              autoCapitalize={autoCapitalize}
+              secureTextEntry={secureTextEntry}
+              multiline={multiline}
+              numberOfLines={numberOfLines}
+              maxLength={maxLength}
+              editable={editable}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            />
+            
+            {rightIcon && (
+              <TouchableOpacity
+                style={styles.iconContainer}
+                onPress={onRightIconPress}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={rightIcon}
+                  size={20}
+                  color={hasValidError ? theme.error : theme.primary}
+                />
+              </TouchableOpacity>
+            )}
+            
+            {value && !hasValidError && animated && !rightIcon && (
+              <Animated.View
+                style={[
+                  styles.successIcon,
+                  {
+                    opacity: successAnimation,
+                    transform: [
+                      {
+                        scale: successAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.5, 1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#00b894" />
+              </Animated.View>
+            )}
+          </View>
         </Animated.View>
       </Animated.View>
 
@@ -337,6 +328,14 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "transparent",
     fontSize: 16,
+    flex: 1,
+    paddingVertical: 16,
+    color: "#1e293b",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
   },
   disabled: {
     opacity: 0.6,
@@ -378,6 +377,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 8,
+    minWidth: 40,
   },
 });
 

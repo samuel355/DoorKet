@@ -4,11 +4,16 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
 import { Platform } from "react-native";
-import { AcceptedOrdersScreen, AvailableOrdersScreen, DeliveryNavigationScreen, EarningsScreen, OrderDetailsScreen, RunnerProfileScreen, ShoppingListScreen } from "../screens/PlaceholderScreens";
 import RunnerDashboardScreen from "../screens/runner/RunnerDashboardScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import SettingsScreen from "../screens/shared/SettingsScreen";
-
+import OrderDetailsScreen from '../screens/runner/OrderDetailsScreen'
+import ShoppingListScreen from '../screens/runner/ShoppingListScreen'
+import DeliveryNavigationScreen from '../screens/runner/DeliveryNavigationScreen'
+import AvailableOrdersScreen from '../screens/runner/AvailableOrdersScreen'
+import AcceptedOrdersScreen from '../screens/runner/AcceptedOrdersScreen'
+import EarningsScreen from '../screens/runner/EarningsScreen'
+import RunnerProfileScreen from '../screens/runner/RunnerProfileScreen'
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RunnerStackParamList>();
