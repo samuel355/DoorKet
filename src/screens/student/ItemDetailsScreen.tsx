@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -7,28 +7,26 @@ import {
   Alert,
   Dimensions,
   TouchableOpacity,
+  Animated,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Text,
-  Card,
-  Button,
-  IconButton,
-  Chip,
-  Divider,
-  Portal,
-  Modal,
-} from "react-native-paper";
+import { Text, Button, IconButton, Portal, Modal } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 
 import { Loading, ErrorState, Input } from "../../components/common";
 import { useCart } from "../../hooks";
-import { COLORS, SPACING, FONTS, BORDER_RADIUS } from "../../constants";
+import { ColorPalette } from "../../theme/colors";
+import { spacing, borderRadius } from "../../theme/styling";
 import { Item } from "@/types";
 import { ItemService } from "@/services/itemService";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const IMAGE_HEIGHT = SCREEN_HEIGHT * 0.5;
+const HEADER_HEIGHT = 100;
 
 interface ItemDetailsScreenProps {
   navigation: any;
@@ -55,6 +53,33 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // Animation values
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideUpAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const heartScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Animated header opacity
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, IMAGE_HEIGHT - HEADER_HEIGHT],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const imageParallax = scrollY.interpolate({
+    inputRange: [0, IMAGE_HEIGHT],
+    outputRange: [0, -IMAGE_HEIGHT * 0.5],
+    extrapolate: "clamp",
+  });
+
+  const imageScale = scrollY.interpolate({
+    inputRange: [-100, 0],
+    outputRange: [1.2, 1],
+    extrapolate: "clamp",
+  });
+
   // Load item details
   const loadItem = useCallback(async () => {
     try {
@@ -72,6 +97,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
       }
 
       setItem(data);
+      startAnimations();
     } catch (err: any) {
       console.error("Error loading item:", err);
       setError(err.message || "Failed to load item details");
@@ -79,6 +105,45 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
       setLoading(false);
     }
   }, [itemId]);
+
+  const startAnimations = () => {
+    // Stagger entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUpAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Floating animation for decorative elements
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  };
 
   // Handle quantity change
   const updateQuantity = (increment: boolean) => {
@@ -109,7 +174,6 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
           },
         ]);
 
-        // Reset form
         setQuantity(1);
         setNotes("");
       }
@@ -122,21 +186,29 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
   // Handle favorite toggle
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite);
-    // Here you would typically save to backend or local storage
+
+    // Heart animation
+    Animated.sequence([
+      Animated.spring(heartScaleAnim, {
+        toValue: 1.3,
+        tension: 100,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+      Animated.spring(heartScaleAnim, {
+        toValue: 1,
+        tension: 100,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
-  // Handle share
-  const handleShare = () => {
-    if (!item) return;
-
-    Alert.alert("Share Item", `Share "${item.name}" with friends?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Share", onPress: () => console.log("Share item") },
-    ]);
-  };
-
-  // Calculate total price
   const totalPrice = (item?.base_price || 0) * quantity;
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -20],
+  });
 
   // Effects
   useFocusEffect(
@@ -164,240 +236,430 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
     );
   }
 
+  const renderFloatingHeader = () => (
+    <Animated.View
+      style={[styles.floatingHeader, { opacity: headerOpacity }]}
+      pointerEvents="box-none"
+    >
+      <BlurView intensity={100} tint="dark" style={styles.headerBlur}>
+        <SafeAreaView style={styles.headerSafeArea}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => navigation.goBack()}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.3)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButtonGradient}
+              >
+                <Ionicons name="arrow-back" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {item.name}
+            </Text>
+
+            <TouchableOpacity style={styles.headerButton} onPress={() => {}}>
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.3)",
+                  "rgba(255, 255, 255, 0.1)",
+                ]}
+                style={styles.headerButtonGradient}
+              >
+                <Ionicons name="share-outline" size={24} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </BlurView>
+    </Animated.View>
+  );
+
+  const renderImageSection = () => (
+    <View style={styles.imageSection}>
+      <Animated.View
+        style={[
+          styles.imageContainer,
+          {
+            transform: [{ translateY: imageParallax }, { scale: imageScale }],
+          },
+        ]}
+      >
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.itemImage} />
+        ) : (
+          <LinearGradient
+            colors={[ColorPalette.neutral[200], ColorPalette.neutral[100]]}
+            style={styles.placeholderImage}
+          >
+            <Ionicons
+              name="image-outline"
+              size={80}
+              color={ColorPalette.neutral[400]}
+            />
+          </LinearGradient>
+        )}
+
+        {/* Floating decorative elements */}
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element1,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.floatingElement,
+            styles.element2,
+            { transform: [{ translateY: floatY }] },
+          ]}
+        />
+      </Animated.View>
+
+      {/* Fixed Action Buttons */}
+      <SafeAreaView
+        style={styles.actionButtonsContainer}
+        pointerEvents="box-none"
+      >
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.goBack()}
+        >
+          <LinearGradient
+            colors={["rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.5)"]}
+            style={styles.actionButtonGradient}
+          >
+            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <View style={styles.actionButtonsRight}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={toggleFavorite}
+          >
+            <LinearGradient
+              colors={
+                isFavorite
+                  ? [ColorPalette.error[500], ColorPalette.error[400]]
+                  : ["rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.5)"]
+              }
+              style={styles.actionButtonGradient}
+            >
+              <Animated.View style={{ transform: [{ scale: heartScaleAnim }] }}>
+                <Ionicons
+                  name={isFavorite ? "heart" : "heart-outline"}
+                  size={24}
+                  color="#ffffff"
+                />
+              </Animated.View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionButton} onPress={() => {}}>
+            <LinearGradient
+              colors={["rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.5)"]}
+              style={styles.actionButtonGradient}
+            >
+              <Ionicons name="share-outline" size={24} color="#ffffff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+
+  const renderContentSection = () => (
+    <Animated.View
+      style={[
+        styles.contentSection,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideUpAnim }, { scale: scaleAnim }],
+        },
+      ]}
+    >
+      {/* Availability Status */}
+      <View style={styles.statusContainer}>
+        <LinearGradient
+          colors={
+            item.is_available
+              ? [
+                  ColorPalette.success[500] + "20",
+                  ColorPalette.success[500] + "10",
+                ]
+              : [ColorPalette.error[500] + "20", ColorPalette.error[500] + "10"]
+          }
+          style={styles.statusBadge}
+        >
+          <Ionicons
+            name={item.is_available ? "checkmark-circle" : "close-circle"}
+            size={16}
+            color={
+              item.is_available
+                ? ColorPalette.success[600]
+                : ColorPalette.error[600]
+            }
+          />
+          <Text
+            style={[
+              styles.statusText,
+              {
+                color: item.is_available
+                  ? ColorPalette.success[600]
+                  : ColorPalette.error[600],
+              },
+            ]}
+          >
+            {item.is_available ? "Available" : "Out of Stock"}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Item Name and Category */}
+      <View style={styles.titleSection}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        {item.category && (
+          <View style={styles.categoryContainer}>
+            <LinearGradient
+              colors={[ColorPalette.primary[100], ColorPalette.primary[50]]}
+              style={styles.categoryBadge}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={14}
+                color={ColorPalette.primary[600]}
+              />
+              <Text style={styles.categoryText}>{item.category.name}</Text>
+            </LinearGradient>
+          </View>
+        )}
+      </View>
+
+      {/* Price Section */}
+      <LinearGradient
+        colors={[ColorPalette.primary[50], ColorPalette.primary[25]]}
+        style={styles.priceSection}
+      >
+        <View style={styles.priceContent}>
+          <Text style={styles.priceLabel}>Price per {item.unit}</Text>
+          {item.base_price ? (
+            <Text style={styles.priceValue}>
+              GHS {item.base_price.toFixed(2)}
+            </Text>
+          ) : (
+            <Text style={styles.priceValue}>Ask for price</Text>
+          )}
+        </View>
+        <View style={styles.priceIcon}>
+          <LinearGradient
+            colors={[ColorPalette.primary[200], ColorPalette.primary[100]]}
+            style={styles.priceIconGradient}
+          >
+            <Ionicons
+              name="pricetag"
+              size={20}
+              color={ColorPalette.primary[600]}
+            />
+          </LinearGradient>
+        </View>
+      </LinearGradient>
+
+      {/* Description */}
+      {item.description && (
+        <View style={styles.descriptionSection}>
+          <Text style={styles.sectionTitle}>Description</Text>
+          <LinearGradient
+            colors={[ColorPalette.neutral[50], ColorPalette.pure.white]}
+            style={styles.descriptionCard}
+          >
+            <Text style={styles.description}>{item.description}</Text>
+          </LinearGradient>
+        </View>
+      )}
+
+      {/* Tags */}
+      {item.tags && item.tags.length > 0 && (
+        <View style={styles.tagsSection}>
+          <Text style={styles.sectionTitle}>Tags</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tagsContainer}>
+              {item.tags.map((tag: string, index: number) => (
+                <LinearGradient
+                  key={index}
+                  colors={[ColorPalette.accent[100], ColorPalette.accent[50]]}
+                  style={styles.tagBadge}
+                >
+                  <Text style={styles.tagText}>{tag}</Text>
+                </LinearGradient>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Order Section */}
+      {item.is_available && (
+        <LinearGradient
+          colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+          style={styles.orderSection}
+        >
+          <Text style={styles.sectionTitle}>Order Details</Text>
+
+          {/* Quantity Selector */}
+          <View style={styles.quantityRow}>
+            <Text style={styles.quantityLabel}>Quantity</Text>
+            <View style={styles.quantityControls}>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  quantity <= 1 && styles.quantityButtonDisabled,
+                ]}
+                onPress={() => updateQuantity(false)}
+                disabled={quantity <= 1}
+              >
+                <LinearGradient
+                  colors={
+                    quantity <= 1
+                      ? [ColorPalette.neutral[200], ColorPalette.neutral[100]]
+                      : [ColorPalette.primary[200], ColorPalette.primary[100]]
+                  }
+                  style={styles.quantityButtonGradient}
+                >
+                  <Ionicons
+                    name="remove"
+                    size={20}
+                    color={
+                      quantity <= 1
+                        ? ColorPalette.neutral[400]
+                        : ColorPalette.primary[600]
+                    }
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.quantityDisplay}>
+                <Text style={styles.quantityValue}>{quantity}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => updateQuantity(true)}
+                disabled={quantity >= 99}
+              >
+                <LinearGradient
+                  colors={[
+                    ColorPalette.primary[200],
+                    ColorPalette.primary[100],
+                  ]}
+                  style={styles.quantityButtonGradient}
+                >
+                  <Ionicons
+                    name="add"
+                    size={20}
+                    color={ColorPalette.primary[600]}
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Special Instructions */}
+          <TouchableOpacity
+            style={styles.notesRow}
+            onPress={() => setShowNotesModal(true)}
+          >
+            <View style={styles.notesContent}>
+              <Text style={styles.notesLabel}>Special Instructions</Text>
+              <Text style={styles.notesPreview} numberOfLines={2}>
+                {notes.trim() || "Add any special instructions..."}
+              </Text>
+            </View>
+            <LinearGradient
+              colors={[ColorPalette.secondary[100], ColorPalette.secondary[50]]}
+              style={styles.notesIcon}
+            >
+              <Ionicons
+                name="create-outline"
+                size={20}
+                color={ColorPalette.secondary[600]}
+              />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Total */}
+          {item.base_price && (
+            <LinearGradient
+              colors={[ColorPalette.primary[500], ColorPalette.primary[400]]}
+              style={styles.totalSection}
+            >
+              <View style={styles.totalContent}>
+                <Text style={styles.totalLabel}>Total Amount</Text>
+                <Text style={styles.totalValue}>
+                  GHS {totalPrice.toFixed(2)}
+                </Text>
+              </View>
+            </LinearGradient>
+          )}
+        </LinearGradient>
+      )}
+    </Animated.View>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent
+      />
+
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-      >
-        {/* Header Actions */}
-        <View style={styles.headerActions}>
-          <IconButton
-            icon="arrow-left"
-            size={24}
-            iconColor={COLORS.WHITE}
-            style={styles.headerButton}
-            onPress={() => navigation.goBack()}
-          />
-          <View style={styles.headerActionsRight}>
-            <IconButton
-              icon={isFavorite ? "heart" : "heart-outline"}
-              size={24}
-              iconColor={COLORS.WHITE}
-              style={styles.headerButton}
-              onPress={toggleFavorite}
-            />
-            <IconButton
-              icon="share-variant"
-              size={24}
-              iconColor={COLORS.WHITE}
-              style={styles.headerButton}
-              onPress={handleShare}
-            />
-          </View>
-        </View>
-
-        {/* Item Image */}
-        <View style={styles.imageContainer}>
-          {item.image_url ? (
-            <Image source={{ uri: item.image_url }} style={styles.itemImage} />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons
-                name="image-outline"
-                size={64}
-                color={COLORS.GRAY_400}
-              />
-            </View>
-          )}
-        </View>
-
-        {/* Item Info */}
-        <Card style={styles.infoCard}>
-          <Card.Content style={styles.infoContent}>
-            {/* Availability Status */}
-            <View style={styles.statusContainer}>
-              <Chip
-                icon={item.is_available ? "check-circle" : "close-circle"}
-                style={[
-                  styles.statusChip,
-                  item.is_available
-                    ? styles.availableChip
-                    : styles.unavailableChip,
-                ]}
-                textStyle={[
-                  styles.statusText,
-                  item.is_available
-                    ? styles.availableText
-                    : styles.unavailableText,
-                ]}
-              >
-                {item.is_available ? "Available" : "Unavailable"}
-              </Chip>
-            </View>
-
-            {/* Item Name */}
-            <Text style={styles.itemName}>{item.name}</Text>
-
-            {/* Category */}
-            {item.category && (
-              <View style={styles.categoryContainer}>
-                <Ionicons
-                  name="grid-outline"
-                  size={16}
-                  color={COLORS.TEXT_SECONDARY}
-                />
-                <Text style={styles.categoryText}>{item.category.name}</Text>
-              </View>
-            )}
-
-            {/* Price and Unit */}
-            <View style={styles.priceContainer}>
-              <View style={styles.priceInfo}>
-                <Text style={styles.priceLabel}>Price per {item.unit}</Text>
-                {item.base_price ? (
-                  <Text style={styles.priceValue}>
-                    GHS {item.base_price.toFixed(2)}
-                  </Text>
-                ) : (
-                  <Text style={styles.priceValue}>Ask for price</Text>
-                )}
-              </View>
-            </View>
-
-            <Divider style={styles.divider} />
-
-            {/* Description */}
-            {item.description && (
-              <View style={styles.descriptionContainer}>
-                <Text style={styles.sectionTitle}>Description</Text>
-                <Text style={styles.description}>{item.description}</Text>
-              </View>
-            )}
-
-            {/* Tags */}
-            {item.tags && item.tags.length > 0 && (
-              <View style={styles.tagsContainer}>
-                <Text style={styles.sectionTitle}>Tags</Text>
-                <View style={styles.tagsContent}>
-                  {item.tags.map((tag: string, index: number) => (
-                    <Chip
-                      key={index}
-                      style={styles.tag}
-                      textStyle={styles.tagText}
-                    >
-                      {tag}
-                    </Chip>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Additional Info */}
-            <View style={styles.additionalInfo}>
-              <View style={styles.infoItem}>
-                <Ionicons
-                  name="cube-outline"
-                  size={16}
-                  color={COLORS.TEXT_SECONDARY}
-                />
-                <Text style={styles.infoLabel}>Unit: </Text>
-                <Text style={styles.infoValue}>{item.unit}</Text>
-              </View>
-
-              {item.barcode && (
-                <View style={styles.infoItem}>
-                  <Ionicons
-                    name="barcode-outline"
-                    size={16}
-                    color={COLORS.TEXT_SECONDARY}
-                  />
-                  <Text style={styles.infoLabel}>Barcode: </Text>
-                  <Text style={styles.infoValue}>{item.barcode}</Text>
-                </View>
-              )}
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Quantity and Notes */}
-        {item.is_available && (
-          <Card style={styles.orderCard}>
-            <Card.Content style={styles.orderContent}>
-              <Text style={styles.sectionTitle}>Order Details</Text>
-
-              {/* Quantity Selector */}
-              <View style={styles.quantityContainer}>
-                <Text style={styles.quantityLabel}>Quantity</Text>
-                <View style={styles.quantityControls}>
-                  <IconButton
-                    icon="minus"
-                    size={20}
-                    iconColor={COLORS.PRIMARY}
-                    style={styles.quantityButton}
-                    onPress={() => updateQuantity(false)}
-                    disabled={quantity <= 1}
-                  />
-                  <Text style={styles.quantityValue}>{quantity}</Text>
-                  <IconButton
-                    icon="plus"
-                    size={20}
-                    iconColor={COLORS.PRIMARY}
-                    style={styles.quantityButton}
-                    onPress={() => updateQuantity(true)}
-                    disabled={quantity >= 99}
-                  />
-                </View>
-              </View>
-
-              {/* Notes */}
-              <TouchableOpacity
-                style={styles.notesContainer}
-                onPress={() => setShowNotesModal(true)}
-              >
-                <Text style={styles.notesLabel}>Special Instructions</Text>
-                <View style={styles.notesPreview}>
-                  <Text style={styles.notesText} numberOfLines={2}>
-                    {notes.trim() || "Add any special instructions..."}
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={COLORS.TEXT_SECONDARY}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* Total Price */}
-              {item.base_price && (
-                <View style={styles.totalContainer}>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>
-                    GHS {totalPrice.toFixed(2)}
-                  </Text>
-                </View>
-              )}
-            </Card.Content>
-          </Card>
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
         )}
-      </ScrollView>
+        scrollEventThrottle={16}
+      >
+        {renderImageSection()}
+        {renderContentSection()}
+      </Animated.ScrollView>
+
+      {renderFloatingHeader()}
 
       {/* Add to Cart Button */}
       {item.is_available && (
         <View style={styles.bottomContainer}>
-          <Button
-            mode="contained"
-            onPress={handleAddToCart}
-            loading={cartLoading}
-            disabled={cartLoading}
+          <TouchableOpacity
             style={styles.addToCartButton}
-            contentStyle={styles.addToCartContent}
-            labelStyle={styles.addToCartLabel}
-            icon="cart-plus"
+            onPress={handleAddToCart}
+            disabled={cartLoading}
           >
-            Add to Cart
-          </Button>
+            <LinearGradient
+              colors={[ColorPalette.primary[600], ColorPalette.primary[500]]}
+              style={styles.addToCartGradient}
+            >
+              {cartLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.addToCartText}>Adding...</Text>
+                </View>
+              ) : (
+                <View style={styles.buttonContent}>
+                  <Ionicons name="cart" size={24} color="#ffffff" />
+                  <Text style={styles.addToCartText}>Add to Cart</Text>
+                </View>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -408,76 +670,135 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
           onDismiss={() => setShowNotesModal(false)}
           contentContainerStyle={styles.modalContainer}
         >
-          <Text style={styles.modalTitle}>Special Instructions</Text>
-          <Text style={styles.modalSubtitle}>
-            Add any special instructions for this item
-          </Text>
+          <LinearGradient
+            colors={[ColorPalette.pure.white, ColorPalette.neutral[50]]}
+            style={styles.modalContent}
+          >
+            <Text style={styles.modalTitle}>Special Instructions</Text>
+            <Text style={styles.modalSubtitle}>
+              Add any special instructions for this item
+            </Text>
 
-          <Input
-            label="Notes"
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="e.g., Extra spicy, no onions, etc."
-            multiline
-            numberOfLines={4}
-            style={styles.notesInput}
-          />
+            <Input
+              label="Notes"
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="e.g., Extra spicy, no onions, etc."
+              multiline
+              numberOfLines={4}
+              style={styles.notesInput}
+            />
 
-          <View style={styles.modalActions}>
-            <Button
-              mode="outlined"
-              onPress={() => setShowNotesModal(false)}
-              style={styles.modalButton}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={() => setShowNotesModal(false)}
-              style={styles.modalButton}
-            >
-              Save
-            </Button>
-          </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowNotesModal(false)}
+              >
+                <LinearGradient
+                  colors={[
+                    ColorPalette.neutral[200],
+                    ColorPalette.neutral[100],
+                  ]}
+                  style={styles.modalButtonGradient}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowNotesModal(false)}
+              >
+                <LinearGradient
+                  colors={[
+                    ColorPalette.primary[500],
+                    ColorPalette.primary[400],
+                  ]}
+                  style={styles.modalButtonGradient}
+                >
+                  <Text
+                    style={[
+                      styles.modalButtonText,
+                      styles.modalButtonTextPrimary,
+                    ]}
+                  >
+                    Save
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
         </Modal>
       </Portal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: ColorPalette.neutral[50],
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for bottom button
+    paddingBottom: 120,
   },
-  headerActions: {
+
+  // Floating Header
+  floatingHeader: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 100,
+  },
+  headerBlur: {
+    height: HEADER_HEIGHT,
+  },
+  headerSafeArea: {
+    flex: 1,
+  },
+  headerContent: {
+    flex: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: SPACING.MD,
-    zIndex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   headerButton: {
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    margin: 0,
+    width: 44,
+    height: 44,
   },
-  headerActionsRight: {
-    flexDirection: "row",
+  headerButtonGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#ffffff",
+    textAlign: "center",
+    marginHorizontal: spacing.md,
+  },
+
+  // Image Section
+  imageSection: {
+    height: IMAGE_HEIGHT,
+    position: "relative",
   },
   imageContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.8,
-    backgroundColor: COLORS.GRAY_100,
+    height: IMAGE_HEIGHT,
+    overflow: "hidden",
   },
   itemImage: {
     width: "100%",
@@ -489,247 +810,426 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.GRAY_100,
   },
-  infoCard: {
-    margin: SPACING.LG,
-    borderRadius: BORDER_RADIUS.LG,
-    elevation: 2,
+  floatingElement: {
+    position: "absolute",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.full,
   },
-  infoContent: {
-    padding: SPACING.LG,
+  element1: {
+    width: 80,
+    height: 80,
+    top: "20%",
+    left: "10%",
   },
+  element2: {
+    width: 60,
+    height: 60,
+    top: "70%",
+    right: "15%",
+  },
+
+  // Action Buttons
+  actionButtonsContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  actionButton: {
+    marginHorizontal: spacing.xs,
+  },
+  actionButtonsRight: {
+    flexDirection: "row",
+  },
+  actionButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+
+  // Content Section
+  contentSection: {
+    marginTop: -spacing.xl,
+    backgroundColor: "transparent",
+    paddingHorizontal: spacing.lg,
+  },
+
+  // Status
   statusContainer: {
     alignItems: "flex-start",
-    marginBottom: SPACING.MD,
+    marginBottom: spacing.lg,
   },
-  statusChip: {
-    height: 32,
-  },
-  availableChip: {
-    backgroundColor: COLORS.SUCCESS + "20",
-  },
-  unavailableChip: {
-    backgroundColor: COLORS.ERROR + "20",
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    elevation: 2,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
   statusText: {
-    fontSize: FONTS.SIZE.SM,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    fontWeight: "600",
   },
-  availableText: {
-    color: COLORS.SUCCESS,
-  },
-  unavailableText: {
-    color: COLORS.ERROR,
+
+  // Title Section
+  titleSection: {
+    backgroundColor: ColorPalette.pure.white,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
   itemName: {
-    fontSize: FONTS.SIZE.XXXL,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.SM,
-    lineHeight: FONTS.LINE_HEIGHT.TIGHT * FONTS.SIZE.XXXL,
+    fontSize: 28,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.md,
+    lineHeight: 34,
   },
   categoryContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: SPACING.LG,
   },
-  categoryText: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_SECONDARY,
-    marginLeft: SPACING.SM,
-  },
-  priceContainer: {
-    marginBottom: SPACING.LG,
-  },
-  priceInfo: {
-    alignItems: "flex-start",
-  },
-  priceLabel: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: SPACING.XS,
-  },
-  priceValue: {
-    fontSize: FONTS.SIZE.XXL,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.PRIMARY,
-  },
-  divider: {
-    marginVertical: SPACING.LG,
-  },
-  descriptionContainer: {
-    marginBottom: SPACING.LG,
-  },
-  sectionTitle: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.SM,
-  },
-  description: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_PRIMARY,
-    lineHeight: FONTS.LINE_HEIGHT.RELAXED * FONTS.SIZE.MD,
-  },
-  tagsContainer: {
-    marginBottom: SPACING.LG,
-  },
-  tagsContent: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: SPACING.SM,
-  },
-  tag: {
-    backgroundColor: COLORS.GRAY_100,
-    height: 32,
-  },
-  tagText: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  additionalInfo: {
-    gap: SPACING.SM,
-  },
-  infoItem: {
+  categoryBadge: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
   },
-  infoLabel: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    marginLeft: SPACING.SM,
+  categoryText: {
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    fontWeight: "600",
+    color: ColorPalette.primary[600],
   },
-  infoValue: {
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_PRIMARY,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
-  },
-  orderCard: {
-    margin: SPACING.LG,
-    marginTop: 0,
-    borderRadius: BORDER_RADIUS.LG,
-    elevation: 2,
-  },
-  orderContent: {
-    padding: SPACING.LG,
-  },
-  quantityContainer: {
+
+  // Price Section
+  priceSection: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: SPACING.LG,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+  priceContent: {
+    flex: 1,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: ColorPalette.neutral[600],
+    marginBottom: spacing.xs,
+    fontWeight: "500",
+  },
+  priceValue: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: ColorPalette.primary[600],
+  },
+  priceIcon: {
+    marginLeft: spacing.lg,
+  },
+  priceIconGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Description Section
+  descriptionSection: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.md,
+  },
+  descriptionCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    elevation: 2,
+    shadowColor: "rgba(0, 0, 0, 0.05)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+  },
+  description: {
+    fontSize: 16,
+    color: ColorPalette.neutral[700],
+    lineHeight: 24,
+  },
+
+  // Tags Section
+  tagsSection: {
+    marginBottom: spacing.lg,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    paddingRight: spacing.lg,
+  },
+  tagBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginRight: spacing.sm,
+  },
+  tagText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ColorPalette.accent[600],
+  },
+
+  // Order Section
+  orderSection: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+
+  // Quantity Controls
+  quantityRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.lg,
   },
   quantityLabel: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_PRIMARY,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.neutral[800],
   },
   quantityControls: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.GRAY_100,
-    borderRadius: BORDER_RADIUS.MD,
+    backgroundColor: ColorPalette.neutral[100],
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
   },
   quantityButton: {
-    margin: 0,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+  },
+  quantityButtonDisabled: {
+    opacity: 0.5,
+  },
+  quantityButtonGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quantityDisplay: {
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
   },
   quantityValue: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    minWidth: 30,
-    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
   },
-  notesContainer: {
-    marginBottom: SPACING.LG,
+
+  // Notes Section
+  notesRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: ColorPalette.neutral[50],
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  notesContent: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   notesLabel: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_PRIMARY,
-    fontWeight: FONTS.WEIGHT.MEDIUM,
-    marginBottom: SPACING.SM,
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.xs,
   },
   notesPreview: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.GRAY_100,
-    borderRadius: BORDER_RADIUS.MD,
-    padding: SPACING.MD,
+    fontSize: 14,
+    color: ColorPalette.neutral[600],
+    lineHeight: 20,
   },
-  notesText: {
-    flex: 1,
-    fontSize: FONTS.SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  totalContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  notesIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.PRIMARY_LIGHT,
-    borderRadius: BORDER_RADIUS.MD,
-    padding: SPACING.MD,
+  },
+
+  // Total Section
+  totalSection: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    elevation: 2,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+  },
+  totalContent: {
+    alignItems: "center",
   },
   totalLabel: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.PRIMARY,
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.pure.white,
+    marginBottom: spacing.xs,
+    opacity: 0.9,
   },
   totalValue: {
-    fontSize: FONTS.SIZE.XL,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.PRIMARY,
+    fontSize: 28,
+    fontWeight: "bold",
+    color: ColorPalette.pure.white,
   },
+
+  // Bottom Container
   bottomContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.WHITE,
+    backgroundColor: ColorPalette.pure.white,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER_LIGHT,
-    padding: SPACING.LG,
+    borderTopColor: ColorPalette.neutral[200],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    elevation: 8,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
   addToCartButton: {
-    borderRadius: BORDER_RADIUS.LG,
+    borderRadius: borderRadius.xl,
+    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.2)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
-  addToCartContent: {
-    height: 56,
+  addToCartGradient: {
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 56,
   },
-  addToCartLabel: {
-    fontSize: FONTS.SIZE.LG,
-    fontWeight: FONTS.WEIGHT.BOLD,
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  addToCartText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: ColorPalette.pure.white,
+    marginLeft: spacing.sm,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Modal Styles
   modalContainer: {
-    backgroundColor: COLORS.WHITE,
-    margin: SPACING.LG,
-    borderRadius: BORDER_RADIUS.LG,
-    padding: SPACING.LG,
+    backgroundColor: "transparent",
+    margin: spacing.lg,
+    borderRadius: borderRadius.xl,
+    overflow: "hidden",
+  },
+  modalContent: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
   },
   modalTitle: {
-    fontSize: FONTS.SIZE.XL,
-    fontWeight: FONTS.WEIGHT.BOLD,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: SPACING.SM,
+    fontSize: 24,
+    fontWeight: "bold",
+    color: ColorPalette.neutral[800],
+    marginBottom: spacing.sm,
+    textAlign: "center",
   },
   modalSubtitle: {
-    fontSize: FONTS.SIZE.MD,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: SPACING.LG,
+    fontSize: 16,
+    color: ColorPalette.neutral[600],
+    marginBottom: spacing.xl,
+    textAlign: "center",
+    lineHeight: 24,
   },
   notesInput: {
-    marginBottom: SPACING.LG,
+    marginBottom: spacing.xl,
   },
   modalActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: SPACING.MD,
+    justifyContent: "space-between",
+    gap: spacing.md,
   },
   modalButton: {
-    minWidth: 80,
+    flex: 1,
+    borderRadius: borderRadius.lg,
+    elevation: 2,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+  },
+  modalButtonGradient: {
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 48,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.neutral[700],
+  },
+  modalButtonTextPrimary: {
+    color: ColorPalette.pure.white,
   },
 });
 
