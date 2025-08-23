@@ -669,18 +669,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             {filteredItems.length} items
           </Text>
         </View>
-        <FlatList
-          data={filteredItems}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: spacing.lg }}
-          renderItem={({ item }) => (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          {filteredItems.map((item) => (
             <TouchableOpacity
+              key={item.id}
               style={{
                 width: (width - spacing.lg * 3) / 2,
                 marginBottom: spacing.md,
-                marginRight: spacing.md,
               }}
               onPress={() => navigation.navigate("ItemDetails", { itemId: item.id })}
             >
@@ -774,8 +769,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </View>
       </Animated.View>
     );
   };
@@ -852,7 +847,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       {renderHeader()}
 
       {renderStickyCategories()}
-      <ScrollView
+      <FlatList
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
@@ -866,12 +861,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           />
         }
         showsVerticalScrollIndicator={false}
-      >
-        {renderQuickActions()}
-        {renderCategories()}
-        {renderItems()}
-        {renderRecentOrders()}
-      </ScrollView>
+        data={[{ id: 'content' }]}
+        keyExtractor={(item) => item.id}
+        renderItem={() => (
+          <View>
+            {renderQuickActions()}
+            {renderCategories()}
+            {renderItems()}
+            {renderRecentOrders()}
+          </View>
+        )}
+      />
     </View>
   );
 };
