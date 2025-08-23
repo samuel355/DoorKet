@@ -20,12 +20,13 @@ import { BlurView } from "expo-blur";
 import { Loading, Input } from "../../components/common";
 import { useAuth } from "@/store/authStore";
 import { useCartStore, useCartActions } from "@/store/cartStore";
+
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
 import { PaymentMethod } from "@/types";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const HEADER_HEIGHT = 120;
+const { width: SCREEN_WIDTH, height } = Dimensions.get("window");
+const HEADER_HEIGHT = height * 0.18;
 
 interface CheckoutScreenProps {
   navigation: any;
@@ -87,7 +88,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
 
   // Pre-fill delivery info from profile
   useEffect(() => {
@@ -121,23 +121,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-
-    // Floating animation for decorative elements
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, [fadeAnim, slideUpAnim, scaleAnim, floatAnim]);
+  }, [fadeAnim, slideUpAnim, scaleAnim]);
 
   // Start animations on mount
   useEffect(() => {
@@ -185,6 +169,36 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
   };
   const finalTotal = cart.total + paymentFees.fees;
 
+  // Handle payment for mobile money and card
+  const handlePayment = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setLoading(true);
+
+      // For now, just navigate to payment screen directly
+      // TODO: Create order first when OrderService is properly implemented
+      navigation.navigate("Payment", {
+        orderId: "temp-order-id", // Temporary until order creation is fixed
+        amount: finalTotal,
+        paymentMethod: selectedPaymentMethod,
+        customerData: {
+          name: profile?.full_name || "",
+          phone: deliveryInfo.phone,
+        },
+      });
+    } catch (error) {
+      console.error("Payment initiation error:", error);
+      Alert.alert(
+        "Payment Error",
+        "Failed to initiate payment. Please try again.",
+        [{ text: "OK" }],
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle place order
   const handlePlaceOrder = async () => {
     if (!validateForm()) {
@@ -212,9 +226,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
 
     try {
       setLoading(true);
-
-      // Prepare delivery address
-      const fullAddress = `${deliveryInfo.address}, ${deliveryInfo.hall_hostel}, Room ${deliveryInfo.room_number}`;
 
       // Simulate order creation (replace with actual service calls)
       const order = {
@@ -266,73 +277,59 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
     }
   };
 
-  const floatY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -20],
-  });
-
   const renderHeader = () => (
-    <LinearGradient
-      colors={[
-        ColorPalette.primary[600],
-        ColorPalette.primary[500],
-        ColorPalette.secondary[500],
-      ]}
-      locations={[0, 0.6, 1]}
-      style={styles.header}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      {/* Floating decorative elements */}
-      <Animated.View
-        style={[
-          styles.floatingElement,
-          styles.element1,
-          { transform: [{ translateY: floatY }] },
+    <View style={styles.headerContainer}>
+      <LinearGradient
+        colors={[
+          ColorPalette.primary[600],
+          ColorPalette.primary[700],
+          ColorPalette.secondary[600],
         ]}
-      />
-      <Animated.View
-        style={[
-          styles.floatingElement,
-          styles.element2,
-          { transform: [{ translateY: floatY }] },
-        ]}
-      />
+        locations={[0, 0.6, 1]}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <SafeAreaView style={styles.headerContent}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" />
 
-      <SafeAreaView style={styles.headerContent}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <LinearGradient
-              colors={["rgba(255, 255, 255, 0.3)", "rgba(255, 255, 255, 0.1)"]}
-              style={styles.backButtonGradient}
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => {
+                console.log("Back button pressed");
+                navigation.goBack();
+              }}
+              activeOpacity={0.7}
             >
               <Ionicons name="arrow-back" size={24} color="#ffffff" />
-            </LinearGradient>
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Checkout</Text>
-            <Text style={styles.headerSubtitle}>
-              {cart.items.length} item{cart.items.length !== 1 ? "s" : ""}
-            </Text>
-          </View>
+            <View style={styles.titleContainer}>
+              <Text style={styles.headerTitle}>Checkout</Text>
+            </View>
 
-          <View style={styles.headerRight}>
-            <LinearGradient
-              colors={[ColorPalette.accent[100], ColorPalette.accent[50]]}
-              style={styles.totalBadge}
-            >
-              <Text style={styles.totalBadgeText}>
+            <View style={styles.headerRight}>
+              <Text style={styles.totalAmount}>
                 GHS {finalTotal.toFixed(2)}
               </Text>
-            </LinearGradient>
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+
+          <View style={styles.headerInfo}>
+            <Text style={styles.itemCountText}>
+              {cart.items.length} item{cart.items.length !== 1 ? "s" : ""}
+            </Text>
+            <Text style={styles.paymentMethodText}>
+              {
+                PAYMENT_METHODS.find((m) => m.id === selectedPaymentMethod)
+                  ?.name
+              }
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 
   const renderDeliverySection = () => (
@@ -732,12 +729,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent
-      />
-
       {renderHeader()}
 
       <KeyboardAvoidingView
@@ -759,7 +750,14 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={styles.placeOrderButton}
-          onPress={() => setShowConfirmModal(true)}
+          onPress={() => {
+            if (selectedPaymentMethod === "cash") {
+              setShowConfirmModal(true);
+            } else {
+              // For mobile money and card, show payment button
+              handlePayment();
+            }
+          }}
           disabled={loading}
         >
           <LinearGradient
@@ -767,9 +765,15 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
             style={styles.placeOrderGradient}
           >
             <View style={styles.buttonContent}>
-              <Ionicons name="bag-check" size={24} color="#ffffff" />
+              <Ionicons
+                name={selectedPaymentMethod === "cash" ? "bag-check" : "card"}
+                size={24}
+                color="#ffffff"
+              />
               <Text style={styles.placeOrderText}>
-                Place Order • GHS {finalTotal.toFixed(2)}
+                {selectedPaymentMethod === "cash"
+                  ? `Place Order • GHS ${finalTotal.toFixed(2)}`
+                  : `Pay GHS ${finalTotal.toFixed(2)}`}
               </Text>
             </View>
           </LinearGradient>
@@ -797,55 +801,37 @@ const styles = StyleSheet.create({
   },
 
   // Header
-  header: {
+  headerContainer: {
     height: HEADER_HEIGHT,
-    position: "relative",
+    overflow: "hidden",
   },
-  floatingElement: {
-    position: "absolute",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: borderRadius.full,
-  },
-  element1: {
-    width: 60,
-    height: 60,
-    top: "20%",
-    left: "10%",
-  },
-  element2: {
-    width: 40,
-    height: 40,
-    top: "60%",
-    right: "15%",
+  headerGradient: {
+    flex: 1,
+    paddingTop: spacing.md,
   },
   headerContent: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
-    justifyContent: "flex-end",
-    paddingBottom: spacing.lg,
+    justifyContent: "space-between",
   },
   headerTop: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-  },
-  backButtonGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
   },
-  headerTitleContainer: {
-    flex: 1,
+  titleContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   headerTitle: {
     fontSize: 24,
@@ -859,23 +845,35 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.8)",
-    marginTop: spacing.xs,
+    fontWeight: "400",
+    marginTop: 2,
+  },
+  headerInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  itemCountText: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: "500",
+  },
+  paymentMethodText: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.8)",
     fontWeight: "500",
   },
   headerRight: {
     alignItems: "flex-end",
+    justifyContent: "center",
   },
-  totalBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  totalBadgeText: {
+  totalAmount: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: ColorPalette.accent[700],
+    fontWeight: "700",
+    color: "#ffffff",
   },
 
   // Sections
