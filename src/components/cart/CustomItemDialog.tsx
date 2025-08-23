@@ -28,6 +28,8 @@ interface CustomItemDialogProps {
   prefilledName?: string;
   prefilledBudget?: number;
   prefilledNotes?: string;
+  editMode?: boolean;
+  editItemId?: string;
 }
 
 const { height, width } = Dimensions.get("window");
@@ -39,6 +41,8 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
   prefilledName = "",
   prefilledBudget = 0,
   prefilledNotes = "",
+  editMode = false,
+  editItemId,
 }) => {
   const [itemName, setItemName] = useState(prefilledName);
   const [budget, setBudget] = useState(prefilledBudget.toString());
@@ -49,7 +53,7 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
     budget?: string;
   }>({});
 
-  const { addCustomItem } = useCartActions();
+  const { addCustomItem, updateCustomItem } = useCartActions();
   const cartError = useCartStore((state) => state.error);
   const clearCartError = useCartStore((state) => state.clearError);
 
@@ -101,18 +105,33 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
       // Clear any previous cart errors
       clearCartError();
 
-      const success = addCustomItem(itemName.trim(), budgetValue, notes.trim());
+      const success =
+        editMode && editItemId
+          ? updateCustomItem(
+              editItemId,
+              itemName.trim(),
+              budgetValue,
+              notes.trim(),
+            )
+          : addCustomItem(itemName.trim(), budgetValue, notes.trim());
 
       if (success) {
-        Alert.alert("Success!", `"${itemName}" has been added to your cart`, [
-          { text: "OK" },
-        ]);
+        Alert.alert(
+          "Success!",
+          editMode
+            ? `"${itemName}" has been updated in your cart`
+            : `"${itemName}" has been added to your cart`,
+          [{ text: "OK" }],
+        );
         onSuccess?.();
         onDismiss();
       } else {
         // Check if there's a specific cart error message
         const errorMessage =
-          cartError || "Failed to add item to cart. Please try again.";
+          cartError ||
+          (editMode
+            ? "Failed to update item in cart. Please try again."
+            : "Failed to add item to cart. Please try again.");
         Alert.alert("Error", errorMessage, [{ text: "OK" }]);
       }
     } catch (error) {
@@ -166,7 +185,9 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
                         color={ColorPalette.primary[600]}
                       />
                     </View>
-                    <Text style={styles.modalTitle}>Add Custom Item</Text>
+                    <Text style={styles.modalTitle}>
+                      {editMode ? "Edit Custom Item" : "Add Custom Item"}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -335,7 +356,13 @@ const CustomItemDialog: React.FC<CustomItemDialogProps> = ({
                         color={ColorPalette.pure.white}
                       />
                       <Text style={styles.addButtonText}>
-                        {isLoading ? "Adding..." : "Add to Cart"}
+                        {isLoading
+                          ? editMode
+                            ? "Updating..."
+                            : "Adding..."
+                          : editMode
+                            ? "Update Item"
+                            : "Add to Cart"}
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>

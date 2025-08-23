@@ -14,6 +14,7 @@ interface CartItemCardProps {
   onQuantityChange: (itemId: string, newQuantity: number) => void;
   onRemove: (itemId: string) => void;
   onPress?: (item: CartItem) => void;
+  onEdit?: (item: CartItem) => void;
   showRemoveButton?: boolean;
   showQuantityControls?: boolean;
   compact?: boolean;
@@ -24,6 +25,7 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
   onQuantityChange,
   onRemove,
   onPress,
+  onEdit,
   showRemoveButton = true,
   showQuantityControls = true,
   compact = false,
@@ -73,6 +75,12 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
       onPress(item);
     }
   }, [item, onPress]);
+
+  const handleEdit = useCallback(() => {
+    if (onEdit) {
+      onEdit(item);
+    }
+  }, [item, onEdit]);
 
   return (
     <Surface
@@ -135,6 +143,19 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
                     color={ColorPalette.primary[500]}
                     style={styles.clickIcon}
                   />
+                )}
+                {onEdit && isCustomItem && (
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEdit}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="create-outline"
+                      size={16}
+                      color={ColorPalette.primary[600]}
+                    />
+                  </TouchableOpacity>
                 )}
               </View>
 
@@ -392,6 +413,12 @@ const styles = StyleSheet.create({
     backgroundColor: ColorPalette.error[50],
     marginLeft: spacing.sm,
     alignSelf: "flex-start",
+  },
+  editButton: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: ColorPalette.primary[50],
+    marginLeft: spacing.xs,
   },
 });
 

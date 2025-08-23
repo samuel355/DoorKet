@@ -20,6 +20,12 @@ interface CartState {
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
   addCustomItem: (name: string, budget: number, notes?: string) => boolean;
+  updateCustomItem: (
+    itemId: string,
+    name: string,
+    budget: number,
+    notes?: string,
+  ) => boolean;
 
   // Cart information
   updateDeliveryAddress: (address: string) => void;
@@ -373,6 +379,69 @@ export const useCartStore = create<CartState>()(
         }
       },
 
+      // Update custom item
+      updateCustomItem: (
+        itemId: string,
+        name: string,
+        budget: number,
+        notes: string = "",
+      ): boolean => {
+        try {
+          if (!name.trim()) {
+            set({ error: "Custom item name is required" });
+            return false;
+          }
+
+          if (budget <= 0) {
+            set({ error: "Budget must be greater than 0" });
+            return false;
+          }
+
+          const currentCart = get().cart;
+          const itemIndex = currentCart.items.findIndex(
+            (item) => item.id === itemId,
+          );
+
+          if (itemIndex === -1) {
+            set({ error: "Item not found in cart" });
+            return false;
+          }
+
+          const existingItem = currentCart.items[itemIndex];
+          if (!existingItem.custom_item_name) {
+            set({ error: "Item is not a custom item" });
+            return false;
+          }
+
+          // Update the custom item
+          const updatedItems = [...currentCart.items];
+          updatedItems[itemIndex] = {
+            ...existingItem,
+            custom_item_name: name.trim(),
+            custom_budget: budget,
+            notes: notes.trim(),
+            total_price: budget * existingItem.quantity,
+          };
+
+          const totals = calculateCartTotals(updatedItems);
+
+          set({
+            cart: {
+              ...currentCart,
+              items: updatedItems,
+              ...totals,
+            },
+            error: null,
+          });
+
+          return true;
+        } catch (error) {
+          console.error("Error updating custom item:", error);
+          set({ error: "Failed to update custom item" });
+          return false;
+        }
+      },
+
       // Update delivery address
       updateDeliveryAddress: (address: string) => {
         try {
@@ -520,6 +589,7 @@ export const useCartActions = () => {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const clearCart = useCartStore((state) => state.clearCart);
   const addCustomItem = useCartStore((state) => state.addCustomItem);
+  const updateCustomItem = useCartStore((state) => state.updateCustomItem);
   const updateDeliveryAddress = useCartStore(
     (state) => state.updateDeliveryAddress,
   );
@@ -533,6 +603,7 @@ export const useCartActions = () => {
     updateQuantity,
     clearCart,
     addCustomItem,
+    updateCustomItem,
     updateDeliveryAddress,
     updateSpecialInstructions,
   };

@@ -47,6 +47,7 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
 }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [customItemDialogVisible, setCustomItemDialogVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
   // Toast notifications
   const { toast, showInfo, hideToast } = useToast();
@@ -135,11 +136,23 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
 
   // Custom item handlers
   const handleAddCustomItem = useCallback(() => {
+    setEditingItem(null);
+    setCustomItemDialogVisible(true);
+  }, []);
+
+  const handleEditCustomItem = useCallback((item: CartItem) => {
+    setEditingItem(item);
     setCustomItemDialogVisible(true);
   }, []);
 
   const handleCustomItemSuccess = useCallback(() => {
     setCustomItemDialogVisible(false);
+    setEditingItem(null);
+  }, []);
+
+  const handleCustomItemDismiss = useCallback(() => {
+    setCustomItemDialogVisible(false);
+    setEditingItem(null);
   }, []);
 
   // Item press handler (navigate to item details if needed)
@@ -238,6 +251,7 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
           onQuantityChange={handleQuantityChange}
           onRemove={handleRemoveItem}
           onPress={handleItemPress}
+          onEdit={item.custom_item_name ? handleEditCustomItem : undefined}
           showRemoveButton
           showQuantityControls
         />
@@ -318,8 +332,13 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
       {/* Custom Item Dialog */}
       <CustomItemDialog
         visible={customItemDialogVisible}
-        onDismiss={() => setCustomItemDialogVisible(false)}
+        onDismiss={handleCustomItemDismiss}
         onSuccess={handleCustomItemSuccess}
+        editMode={!!editingItem}
+        editItemId={editingItem?.id}
+        prefilledName={editingItem?.custom_item_name || ""}
+        prefilledBudget={editingItem?.custom_budget || 0}
+        prefilledNotes={editingItem?.notes || ""}
       />
 
       {/* Toast Notifications */}
