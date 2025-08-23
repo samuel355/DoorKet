@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxxl,
+    
   },
   content: {
     flex: 1,
@@ -767,7 +767,6 @@ const styles = StyleSheet.create({
   },
   universityBadge: {
     alignSelf: "center",
-    marginBottom: spacing.xxxxl,
     borderRadius: borderRadius.full,
     ...shadows.sm,
   },
@@ -787,7 +786,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   buttonContainer: {
-    marginBottom: spacing.xl,
   },
   continueButtonContainer: {
     borderRadius: borderRadius.xl,
@@ -820,6 +818,9 @@ const styles = StyleSheet.create({
     color: ColorPalette.neutral[600],
     textAlign: "center",
     fontWeight: "500",
+    paddingBottom: 150,
+    marginTop: -30,
+    marginBottom: spacing.xxxxl,
   },
   footerLink: {
     color: ColorPalette.primary[600],
@@ -827,7 +828,7 @@ const styles = StyleSheet.create({
   },
   buttonIndicator: {
     position: "absolute",
-    bottom: 120,
+    bottom: 135,
     left: 0,
     right: 0,
     flexDirection: "row",

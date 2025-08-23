@@ -217,6 +217,7 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
                 <TouchableOpacity
                   style={styles.iconContainer}
                   onPress={onRightIconPress}
+                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name={rightIcon}

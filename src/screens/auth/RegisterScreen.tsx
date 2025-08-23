@@ -825,12 +825,12 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           >
             <Text style={styles.footerText}>
               By creating an account, you agree to our{" "}
-              <Text style={[styles.footerLink, { color: getUserTypeColor() }]}>
+              <Text style={[styles.footerLink,]}>
                 Terms of Service
               </Text>{" "}
               and{" "}
-              <Text style={[styles.footerLink, { color: getUserTypeColor() }]}>
-                Privacy Policy
+              <Text style={[styles.footerLink,]}>
+                Privacy Policy.
               </Text>
             </Text>
           </Animated.View>
@@ -987,9 +987,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#64748b",
-    textAlign: "center",
+    color: "white",
     lineHeight: 20,
+    width: '100%',
+    alignItems: "center",
   },
   footerLink: {
     fontWeight: "600",
