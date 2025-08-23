@@ -21,13 +21,14 @@ import {
   CustomItemDialog,
   CartBadge,
 } from "@/src/components/cart";
-import { Loading } from "@/src/components/common";
+import { Loading, Toast } from "@/src/components/common";
 import { useCartStore, useCartActions } from "@/store/cartStore";
 import { StudentStackParamList, CartItem } from "@/types";
 import { ColorPalette } from "@/src/theme/colors";
 import { spacing, borderRadius } from "@/src/theme/styling";
-import { showConfirmation } from "@/src/utils";
+import { showConfirmation, formatCurrency } from "@/src/utils";
 import { CommonActions } from "@react-navigation/native";
+import { useToast } from "@/src/hooks/useToast";
 
 type EnhancedCartScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -46,6 +47,9 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
 }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [customItemDialogVisible, setCustomItemDialogVisible] = useState(false);
+
+  // Toast notifications
+  const { toast, showInfo, hideToast } = useToast();
 
   // Cart store hooks
   const cart = useCartStore((state) => state.cart);
@@ -142,10 +146,24 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
   const handleItemPress = useCallback(
     (item: CartItem) => {
       if (item.item?.id) {
-        navigation.navigate("ItemDetails", { itemId: item.item.id });
+        // Navigate to item details for regular items
+        navigation.getParent()?.dispatch(
+          CommonActions.navigate({
+            name: "HomeTab",
+            params: {
+              screen: "ItemDetails",
+              params: { itemId: item.item.id },
+            },
+          }),
+        );
+      } else if (item.custom_item_name) {
+        // Show toast info for custom items since they don't have detail pages
+        const budget = formatCurrency(item.custom_budget || 0);
+        const message = `${item.custom_item_name} - Budget: ${budget}${item.notes ? ` • ${item.notes}` : ""}`;
+        showInfo(message, 3000);
       }
     },
-    [navigation],
+    [navigation, showInfo],
   );
 
   const renderHeader = () => (
@@ -302,6 +320,16 @@ const EnhancedCartScreen: React.FC<EnhancedCartScreenProps> = ({
         visible={customItemDialogVisible}
         onDismiss={() => setCustomItemDialogVisible(false)}
         onSuccess={handleCustomItemSuccess}
+      />
+
+      {/* Toast Notifications */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onDismiss={hideToast}
+        action={toast.action}
       />
     </View>
   );

@@ -1,12 +1,6 @@
 import React, { useState, useCallback } from "react";
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from "react-native";
-import { Text, IconButton, Surface } from "react-native-paper";
+import { View, StyleSheet, TouchableOpacity, Image, Alert } from "react-native";
+import { Text, Surface } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -56,7 +50,7 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
         setIsUpdating(false);
       }
     },
-    [item.id, onQuantityChange, isUpdating]
+    [item.id, onQuantityChange, isUpdating],
   );
 
   const handleRemove = useCallback(() => {
@@ -70,7 +64,7 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
           style: "destructive",
           onPress: () => onRemove(item.id),
         },
-      ]
+      ],
     );
   }, [item.id, itemName, onRemove]);
 
@@ -82,16 +76,14 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
 
   return (
     <Surface
-      style={[
-        styles.container,
-        compact && styles.compactContainer,
-      ]}
+      style={[styles.container, compact && styles.compactContainer]}
       elevation={1}
     >
       <TouchableOpacity
         onPress={handlePress}
         activeOpacity={onPress ? 0.7 : 1}
         disabled={!onPress}
+        style={onPress ? styles.clickableContainer : undefined}
       >
         <View style={styles.content}>
           {/* Item Image */}
@@ -105,7 +97,10 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
             ) : (
               <LinearGradient
                 colors={[ColorPalette.primary[100], ColorPalette.primary[200]]}
-                style={[styles.imagePlaceholder, compact && styles.compactImage]}
+                style={[
+                  styles.imagePlaceholder,
+                  compact && styles.compactImage,
+                ]}
               >
                 <Ionicons
                   name={isCustomItem ? "create-outline" : "image-outline"}
@@ -126,15 +121,29 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
           {/* Item Details */}
           <View style={styles.details}>
             <View style={styles.nameContainer}>
-              <Text
-                style={[styles.itemName, compact && styles.compactItemName]}
-                numberOfLines={compact ? 1 : 2}
-              >
-                {itemName}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text
+                  style={[styles.itemName, compact && styles.compactItemName]}
+                  numberOfLines={compact ? 1 : 2}
+                >
+                  {itemName}
+                </Text>
+                {onPress && item.item?.id && (
+                  <Ionicons
+                    name="chevron-forward-outline"
+                    size={16}
+                    color={ColorPalette.primary[500]}
+                    style={styles.clickIcon}
+                  />
+                )}
+              </View>
 
               {item.item?.unit && !isCustomItem && (
                 <Text style={styles.unit}>per {item.item.unit}</Text>
+              )}
+
+              {onPress && item.item?.id && (
+                <Text style={styles.clickHint}>Tap to view details</Text>
               )}
             </View>
 
@@ -151,7 +160,10 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
                 <Text style={styles.unitPrice}>
                   {formatCurrency(itemPrice)}
                   {item.quantity > 1 && (
-                    <Text style={styles.quantityMultiplier}> × {item.quantity}</Text>
+                    <Text style={styles.quantityMultiplier}>
+                      {" "}
+                      × {item.quantity}
+                    </Text>
                   )}
                 </Text>
                 <Text style={styles.totalPrice}>
@@ -227,6 +239,10 @@ const styles = StyleSheet.create({
     backgroundColor: ColorPalette.pure.white,
     overflow: "hidden",
   },
+  clickableContainer: {
+    borderWidth: 1,
+    borderColor: ColorPalette.primary[100],
+  },
   compactContainer: {
     marginBottom: spacing.xs,
   },
@@ -277,6 +293,11 @@ const styles = StyleSheet.create({
   nameContainer: {
     marginBottom: spacing.xs,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   itemName: {
     fontSize: 16,
     fontWeight: "600",
@@ -299,6 +320,15 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: spacing.xs,
     lineHeight: 16,
+  },
+  clickIcon: {
+    marginLeft: spacing.xs,
+  },
+  clickHint: {
+    fontSize: 10,
+    color: ColorPalette.primary[500],
+    fontStyle: "italic",
+    marginTop: 2,
   },
   bottomRow: {
     flexDirection: "row",
