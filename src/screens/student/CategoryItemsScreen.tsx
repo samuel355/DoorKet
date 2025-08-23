@@ -18,11 +18,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 
-import { Loading, EmptyState } from "../../components/common";
+import { Loading, Toast } from "../../components/common";
 import { Item, StudentStackParamList } from "@/types";
 import { ColorPalette } from "../../theme/colors";
 import { spacing, borderRadius } from "../../theme/styling";
 import { ItemService } from "@/services/itemService";
+import { useCartActions, useCartStore } from "@/store/cartStore";
+import { CartBadge } from "../../components/cart";
+import { useToast } from "../../hooks/useToast";
+import { showAlert } from "../../utils";
 
 type CategoryItemsScreenNavigationProp = StackNavigationProp<
   StudentStackParamList,
@@ -48,6 +52,15 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
   route,
 }) => {
   const { categoryId, categoryName } = route.params;
+
+  // Cart actions
+  const { addItem } = useCartActions();
+  const isItemInCart = useCartStore((state) => state.isItemInCart);
+  const getItemQuantity = useCartStore((state) => state.getItemQuantity);
+
+  // Toast notifications
+  const { toast, showSuccess, showError, hideToast } = useToast();
+
   const [items, setItems] = useState<Item[]>([]);
   const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,15 +73,6 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    loadCategoryItems();
-    startAnimations();
-  }, [categoryId]);
-
-  useEffect(() => {
-    filterItems();
-  }, [searchQuery, items]);
 
   const startAnimations = useCallback(() => {
     Animated.sequence([
@@ -143,6 +147,15 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
       setFilteredItems(filtered);
     }
   }, [searchQuery, items]);
+
+  useEffect(() => {
+    loadCategoryItems();
+    startAnimations();
+  }, [categoryId, loadCategoryItems, startAnimations]);
+
+  useEffect(() => {
+    filterItems();
+  }, [searchQuery, items, filterItems]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -221,10 +234,8 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
             </View>
 
             <TouchableOpacity
-              style={styles.menuButton}
-              onPress={() => {
-                // Could add filter/sort options here
-              }}
+              style={styles.cartButton}
+              onPress={() => navigation.navigate("Cart")}
             >
               <LinearGradient
                 colors={[
@@ -233,7 +244,12 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
                 ]}
                 style={styles.headerButton}
               >
-                <Ionicons name="grid-outline" size={24} color="#ffffff" />
+                <CartBadge
+                  color="#ffffff"
+                  badgeColor={ColorPalette.secondary[500]}
+                  size="small"
+                  showZero={false}
+                />
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -356,21 +372,62 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
 
             <View style={styles.itemActions}>
               <TouchableOpacity
-                style={styles.addToCartButton}
+                style={[
+                  styles.addToCartButton,
+                  isItemInCart(item.id) && styles.addToCartButtonInCart,
+                ]}
                 onPress={() => {
-                  // Add to cart functionality
-                  console.log("Add to cart:", item.id);
+                  if (!item.is_available) {
+                    showAlert(
+                      "Item Unavailable",
+                      "This item is currently out of stock.",
+                    );
+                    return;
+                  }
+
+                  if (!item.base_price || item.base_price <= 0) {
+                    showAlert(
+                      "Price Not Available",
+                      "This item's price is not available. Please contact support.",
+                    );
+                    return;
+                  }
+
+                  try {
+                    addItem(item, 1);
+                    showSuccess(`${item.name} added to cart!`, 2500, {
+                      label: "View Cart",
+                      onPress: () => navigation.navigate("Cart"),
+                    });
+                  } catch (error) {
+                    console.error("Error adding item to cart:", error);
+                    showError(
+                      "An unexpected error occurred. Please try again.",
+                    );
+                  }
                 }}
               >
                 <LinearGradient
-                  colors={[
-                    ColorPalette.primary[500],
-                    ColorPalette.primary[600],
-                  ]}
+                  colors={
+                    isItemInCart(item.id)
+                      ? [
+                          ColorPalette.secondary[500],
+                          ColorPalette.secondary[600],
+                        ]
+                      : [ColorPalette.primary[500], ColorPalette.primary[600]]
+                  }
                   style={styles.addButtonGradient}
                 >
-                  <Ionicons name="add" size={16} color="#ffffff" />
-                  <Text style={styles.addButtonText}>Add</Text>
+                  <Ionicons
+                    name={isItemInCart(item.id) ? "checkmark" : "add"}
+                    size={16}
+                    color="#ffffff"
+                  />
+                  <Text style={styles.addButtonText}>
+                    {isItemInCart(item.id)
+                      ? `In Cart (${getItemQuantity(item.id)})`
+                      : "Add"}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -481,6 +538,16 @@ const CategoryItemsScreen: React.FC<CategoryItemsScreenProps> = ({
           </View>
         )}
       </ScrollView>
+
+      {/* Toast Notifications */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onDismiss={hideToast}
+        action={toast.action}
+      />
     </View>
   );
 };
@@ -536,7 +603,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   backButton: {},
-  menuButton: {},
+  cartButton: {},
   headerButton: {
     width: 48,
     height: 48,
@@ -694,6 +761,9 @@ const styles = StyleSheet.create({
   },
   addToCartButton: {
     flex: 1,
+  },
+  addToCartButtonInCart: {
+    opacity: 0.8,
   },
   addButtonGradient: {
     flexDirection: "row",
