@@ -724,7 +724,7 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
       {renderFloatingHeader()}
 
       {/* Add to Cart Button */}
-      {item && item.is_available && (
+      {item && item.is_available && !itemInCart && (
         <View style={styles.bottomContainer}>
           <TouchableOpacity
             style={styles.addToCartButton}
@@ -747,6 +747,58 @@ const ItemDetailsScreen: React.FC<ItemDetailsScreenProps> = ({
               )}
             </LinearGradient>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* In Cart Label with Quantity Controls */}
+      {item && item.is_available && itemInCart && (
+        <View style={styles.bottomContainer}>
+          <View style={styles.inCartContainer}>
+            <View style={styles.inCartLabelSection}>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={ColorPalette.success[600]}
+              />
+              <Text style={styles.inCartLabel}>In Cart</Text>
+            </View>
+            <View style={styles.cartQuantityControls}>
+              <TouchableOpacity
+                style={[
+                  styles.cartQuantityButton,
+                  cartQuantity <= 1 && styles.cartQuantityButtonDisabled,
+                ]}
+                onPress={() => updateQuantity(false)}
+                disabled={cartQuantity <= 1}
+              >
+                <Ionicons
+                  name="remove"
+                  size={16}
+                  color={
+                    cartQuantity <= 1
+                      ? ColorPalette.neutral[400]
+                      : ColorPalette.primary[600]
+                  }
+                />
+              </TouchableOpacity>
+
+              <View style={styles.cartQuantityDisplay}>
+                <Text style={styles.cartQuantityValue}>{cartQuantity}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.cartQuantityButton}
+                onPress={() => updateQuantity(true)}
+                disabled={cartQuantity >= 99}
+              >
+                <Ionicons
+                  name="add"
+                  size={16}
+                  color={ColorPalette.primary[600]}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       )}
 
@@ -1251,8 +1303,59 @@ const styles = StyleSheet.create({
   addToCartText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: ColorPalette.pure.white,
+    color: "#ffffff",
     marginLeft: spacing.sm,
+  },
+  inCartContainer: {
+    backgroundColor: ColorPalette.neutral[50],
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: ColorPalette.success[200],
+  },
+  inCartLabelSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  inCartLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.success[700],
+    marginLeft: spacing.sm,
+  },
+  cartQuantityControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ColorPalette.pure.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.xs,
+  },
+  cartQuantityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    backgroundColor: ColorPalette.primary[50],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartQuantityButtonDisabled: {
+    backgroundColor: ColorPalette.neutral[100],
+    opacity: 0.5,
+  },
+  cartQuantityDisplay: {
+    minWidth: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+  },
+  cartQuantityValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: ColorPalette.neutral[800],
   },
   loadingContainer: {
     flexDirection: "row",
