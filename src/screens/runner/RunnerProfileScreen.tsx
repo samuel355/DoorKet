@@ -735,18 +735,18 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingTop: 24,
-    paddingBottom: 100,
+    paddingBottom: 10,
   },
 
   // Stats Cards
   statsContainer: {
-    paddingHorizontal: 20,
     marginBottom: 32,
   },
   statsGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
   },
   statCard: {
     width: (width - 56) / 2,

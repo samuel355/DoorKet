@@ -543,7 +543,7 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
     >
       <TouchableOpacity
         style={styles.fabTouchable}
-        onPress={() => navigation.navigate("AvailableOrders")}
+        onPress={() => navigation.navigate("AvailableTab")}
         activeOpacity={0.8}
       >
         <LinearGradient
@@ -559,13 +559,15 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left","right"]}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={ColorPalette.primary[500]}
         translucent
       />
-
+      
+      {renderHeroSection()}
+        
       <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -585,7 +587,6 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
           />
         }
       >
-        {renderHeroSection()}
 
         <View style={styles.contentContainer}>
           {renderQuickActions()}
@@ -609,7 +610,7 @@ const styles = StyleSheet.create({
     marginTop: -59,
   },
   scrollContent: {
-    paddingBottom: 100,
+
   },
 
   // Hero Section
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
     backgroundColor: ColorPalette.neutral[50],
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    marginTop: -24,
+    marginTop: 4,
     paddingTop: 24,
     minHeight: height * 0.7,
   },
@@ -743,6 +744,7 @@ const styles = StyleSheet.create({
   // Quick Actions
   quickActionsSection: {
     marginBottom: 32,
+    marginTop: 44,
   },
   quickActionsGrid: {
     flexDirection: "row",

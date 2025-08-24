@@ -160,7 +160,7 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
   }, [loadEarnings, startAnimations]);
 
   const formatCurrency = (amount: number): string => {
-    return `$${amount.toFixed(2)}`;
+    return `¢${amount.toFixed(2)}`;
   };
 
   const formatDate = (dateString: string): string => {
@@ -189,7 +189,7 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
   };
 
   const renderStatsCards = () => (
-    <View style={styles.statsContainer}>
+    <View style={[styles.statsContainer]}>
       <View style={styles.statsRow}>
         <Animated.View
           style={[
@@ -209,7 +209,7 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
           ]}
         >
           <LinearGradient
-            colors={[ColorPalette.success[500], ColorPalette.success[600]]}
+            colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
             style={styles.statCardGradient}
           >
             <View style={styles.statCardContent}>
@@ -246,13 +246,13 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
             },
           ]}
         >
-          <View style={styles.statCardContent}>
+          <View style={[styles.statCardContent, {padding: 10, alignItems: 'center'}]}>
             <Ionicons
               name="bag-check"
               size={24}
-              color={ColorPalette.primary[500]}
+              color={ColorPalette.primary[600]}
             />
-            <View style={styles.statCardText}>
+            <View style={[styles.statCardText]}>
               <Text style={styles.statCardValue}>
                 {earnings.completedOrders}
               </Text>
@@ -277,11 +277,11 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
             },
           ]}
         >
-          <View style={styles.statCardContent}>
+          <View style={[styles.statCardContent, {padding: 10, alignItems: 'center'}]}>
             <Ionicons
               name="trending-up"
               size={24}
-              color={ColorPalette.accent[500]}
+              color={ColorPalette.primary[500]}
             />
             <View style={styles.statCardText}>
               <Text style={styles.statCardValue}>
@@ -310,7 +310,7 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
             },
           ]}
         >
-          <View style={styles.statCardContent}>
+          <View style={[styles.statCardContent, {padding: 10, alignItems: 'center'}]}>
             <Ionicons name="gift" size={24} color="#FF9800" />
             <View style={styles.statCardText}>
               <Text style={styles.statCardValue}>
@@ -337,7 +337,7 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
             },
           ]}
         >
-          <View style={styles.statCardContent}>
+          <View style={[styles.statCardContent, {padding: 10, alignItems: 'center'}]}>
             <Ionicons name="car" size={24} color="#4CAF50" />
             <View style={styles.statCardText}>
               <Text style={styles.statCardValue}>
@@ -464,7 +464,7 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left","right"]}>
       <RunnerHeader
         title="My Earnings"
         subtitle={`${earnings.completedOrders} orders completed`}
@@ -472,9 +472,9 @@ const EarningsScreen: React.FC<EarningsProps> = ({ navigation }) => {
         onRefresh={loadEarnings}
         isRefreshing={isRefreshing}
         gradientColors={[
-          ColorPalette.accent[400],
-          ColorPalette.accent[500],
-          ColorPalette.accent[600],
+          ColorPalette.primary[400],
+          ColorPalette.primary[500],
+          ColorPalette.primary[600],
         ]}
       />
 
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   activePeriodButton: {
-    backgroundColor: ColorPalette.accent[500],
+    backgroundColor: ColorPalette.primary[500],
   },
   periodButtonText: {
     fontSize: 14,
@@ -542,6 +542,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: 16,
     gap: 12,
+ 
   },
   statCard: {
     flex: 1,
@@ -552,6 +553,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
+
   },
   primaryStatCard: {
     marginBottom: 16,
@@ -561,6 +563,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   statCardContent: {
+    display: 'flex',
     flexDirection: "row",
     alignItems: "center",
   },
@@ -571,12 +574,12 @@ const styles = StyleSheet.create({
   statCardValue: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 4,
+    color: ColorPalette.accent[400],
+    //marginBottom: 4,
   },
   statCardLabel: {
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.9)",
+    color: ColorPalette.neutral[400],
     fontWeight: "500",
   },
   historyContainer: {

@@ -7,13 +7,14 @@ import { Platform } from "react-native";
 import RunnerDashboardScreen from "../screens/runner/RunnerDashboardScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import SettingsScreen from "../screens/shared/SettingsScreen";
-import OrderDetailsScreen from '../screens/runner/OrderDetailsScreen'
-import ShoppingListScreen from '../screens/runner/ShoppingListScreen'
-import DeliveryNavigationScreen from '../screens/runner/DeliveryNavigationScreen'
-import AvailableOrdersScreen from '../screens/runner/AvailableOrdersScreen'
-import AcceptedOrdersScreen from '../screens/runner/AcceptedOrdersScreen'
-import EarningsScreen from '../screens/runner/EarningsScreen'
-import RunnerProfileScreen from '../screens/runner/RunnerProfileScreen'
+import OrderDetailsScreen from "../screens/runner/OrderDetailsScreen";
+import ShoppingListScreen from "../screens/runner/ShoppingListScreen";
+import DeliveryNavigationScreen from "../screens/runner/DeliveryNavigationScreen";
+import AvailableOrdersScreen from "../screens/runner/AvailableOrdersScreen";
+import AcceptedOrdersScreen from "../screens/runner/AcceptedOrdersScreen";
+import EarningsScreen from "../screens/runner/EarningsScreen";
+import RunnerProfileScreen from "../screens/runner/RunnerProfileScreen";
+import { ColorPalette } from "../theme/colors";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RunnerStackParamList>();
@@ -45,6 +46,7 @@ const DashboardStackNavigator = () => {
               style={{ marginRight: 16 }}
             />
           ),
+          headerShown: false,
         }}
       />
       <Stack.Screen
@@ -52,6 +54,7 @@ const DashboardStackNavigator = () => {
         component={OrderDetailsScreen}
         options={({ route }) => ({
           title: `Order #${route.params.orderId.slice(-6)}`,
+          //headerShown: false
         })}
       />
       <Stack.Screen
@@ -101,6 +104,7 @@ const AvailableOrdersStackNavigator = () => {
               style={{ marginRight: 16 }}
             />
           ),
+          headerShown: false
         }}
       />
       <Stack.Screen
@@ -133,6 +137,7 @@ const ActiveOrdersStackNavigator = () => {
         component={AcceptedOrdersScreen}
         options={{
           title: "My Active Orders",
+          headerShown: false
         }}
       />
       <Stack.Screen
@@ -189,6 +194,7 @@ const EarningsStackNavigator = () => {
               style={{ marginRight: 16 }}
             />
           ),
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
@@ -214,6 +220,7 @@ const ProfileStackNavigator = () => {
         component={RunnerProfileScreen}
         options={{
           title: "Runner Profile",
+          headerShown: false
         }}
       />
       <Stack.Screen
@@ -265,7 +272,7 @@ const RunnerNavigator: React.FC = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#4CAF50",
+        tabBarActiveTintColor: ColorPalette.primary[500],
         tabBarInactiveTintColor: "#888888",
         tabBarStyle: {
           backgroundColor: "#ffffff",

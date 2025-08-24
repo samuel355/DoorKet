@@ -11,7 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ColorPalette } from "../../theme/colors";
 
 const { width, height } = Dimensions.get("window");
-const HERO_HEIGHT = height * 0.32;
+const HERO_HEIGHT = height * 0.4;
 console.log(width)
 
 interface RunnerHeroSectionProps {
@@ -83,6 +83,7 @@ export const RunnerHeroSection: React.FC<RunnerHeroSectionProps> = ({
         {
           transform: [{ scale: heroScale }],
           opacity: heroOpacity,
+          zIndex: 10
         },
       ]}
     >
@@ -159,9 +160,8 @@ export const RunnerHeroSection: React.FC<RunnerHeroSectionProps> = ({
 const styles = StyleSheet.create({
   heroContainer: {
     height: HERO_HEIGHT,
-    marginHorizontal: 16,
-    marginTop: 20,
-    borderRadius: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: "hidden",
     elevation: 8,
     shadowColor: "#000",
@@ -212,6 +212,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: "space-between",
+    paddingTop: 120
   },
   greetingSection: {
     alignItems: "flex-start",

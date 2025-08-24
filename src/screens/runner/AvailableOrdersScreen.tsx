@@ -303,12 +303,13 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
           {
             opacity: searchAnim,
             transform: [{ translateY: Animated.multiply(searchAnim, -20) }],
+            marginTop: 20
           },
         ]}
       >
         <Ionicons name="search-outline" size={20} color="#666" />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput]}
           placeholder="Search orders..."
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -384,7 +385,7 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
   const filteredOrders = getFilteredOrders();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left","right"]}>
       <RunnerHeader
         title="Available Orders"
         subtitle={`${filteredOrders.length} orders waiting`}

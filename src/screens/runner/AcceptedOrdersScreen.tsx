@@ -263,6 +263,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
         {
           opacity: tabAnim,
           transform: [{ translateY: Animated.multiply(tabAnim, -20) }],
+          marginTop: 36,
         },
       ]}
     >
@@ -297,7 +298,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left","right"]}>
       <RunnerHeader
         title="Active Orders"
         subtitle={`${orders.length} orders in progress`}
@@ -305,9 +306,9 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
         onRefresh={loadOrders}
         isRefreshing={isRefreshing}
         gradientColors={[
-          ColorPalette.secondary[500],
-          ColorPalette.secondary[600],
-          ColorPalette.secondary[700],
+          ColorPalette.primary[500],
+          ColorPalette.primary[600],
+          ColorPalette.primary[700],
         ]}
       />
 
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   activeTab: {
-    backgroundColor: ColorPalette.secondary[500],
+    backgroundColor: ColorPalette.primary[500],
   },
   tabText: {
     fontSize: 14,
