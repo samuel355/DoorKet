@@ -298,7 +298,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["left","right"]}>
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <RunnerHeader
         title="Active Orders"
         subtitle={`${orders.length} orders in progress`}
