@@ -12,9 +12,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.doorket",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"],
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to provide delivery services and show your location on the map.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to provide delivery services and track your orders."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyCCT_ScTuT8oEcOQgm-vP5Dkrk5PNkuKZg"
       }
     },
     "android": {
@@ -28,6 +31,12 @@
         "icon": "./assets/images/notification-icon.png",
         "color": "#0A84FF",
         "channelId": "default"
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCCT_ScTuT8oEcOQgm-vP5Dkrk5PNkuKZg"
+        }
       }
     },
     "web": {
@@ -47,7 +56,8 @@
         }
       ],
       "expo-notifications",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-location"
     ],
     "experiments": {
       "typedRoutes": true
