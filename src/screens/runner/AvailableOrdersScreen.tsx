@@ -5,13 +5,12 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  Dimensions,
   Animated,
   Alert,
-  Platform,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, Searchbar } from "react-native-paper";
+import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -19,35 +18,29 @@ import { RunnerStackParamList, Order } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
+import { RunnerHeader } from "../../components/runner/RunnerHeader";
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 interface OrderCardProps {
   order: Order;
   index: number;
-  isAccepting: boolean;
   onAccept: (orderId: string) => void;
   onViewDetails: (orderId: string) => void;
-  calculateDistance: (order: Order) => string;
   formatCurrency: (amount: number) => string;
   formatTime: (dateString: string) => string;
-  isUrgent: (dateString: string) => boolean;
+  getDistanceText: (order: Order) => string;
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({
   order,
   index,
-  isAccepting,
   onAccept,
   onViewDetails,
-  calculateDistance,
   formatCurrency,
   formatTime,
-  isUrgent,
+  getDistanceText,
 }) => {
-  const urgent = isUrgent(order.created_at);
-  const distance = calculateDistance(order);
-
   const cardAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -67,141 +60,85 @@ const OrderCard: React.FC<OrderCardProps> = ({
           opacity: cardAnimation,
           transform: [
             {
-              translateY: Animated.multiply(
-                Animated.subtract(1, cardAnimation),
-                50,
-              ),
+              translateY: cardAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0],
+              }),
             },
           ],
         },
       ]}
     >
       <TouchableOpacity
-        activeOpacity={0.9}
+        style={styles.cardContainer}
         onPress={() => onViewDetails(order.id)}
+        activeOpacity={0.9}
       >
         <LinearGradient
-          colors={["#FFFFFF", "#FEFEFE"]}
-          style={styles.orderCardGradient}
+          colors={["#FFFFFF", "#F8F9FA"]}
+          style={styles.cardGradient}
         >
-          {urgent && (
-            <View style={styles.urgentBadge}>
-              <Ionicons name="flash" size={14} color="#FFFFFF" />
-              <Text style={styles.urgentBadgeText}>URGENT</Text>
+          <View style={styles.cardHeader}>
+            <View style={styles.orderInfo}>
+              <Text style={styles.orderNumber}>
+                Order #{order.order_number}
+              </Text>
+              <Text style={styles.orderTime}>
+                {formatTime(order.created_at)}
+              </Text>
             </View>
-          )}
-
-          <View style={styles.orderCardContent}>
-            {/* Header */}
-            <View style={styles.orderCardHeader}>
-              <View style={styles.orderNumberContainer}>
-                <Text style={styles.orderNumber}>#{order.order_number}</Text>
-                <Text style={styles.orderTime}>
-                  {formatTime(order.created_at)}
-                </Text>
-              </View>
-              <View style={styles.orderAmount}>
-                <Text style={styles.orderAmountText}>
-                  {formatCurrency(order.total_amount)}
-                </Text>
-              </View>
+            <View style={styles.urgencyBadge}>
+              <Ionicons name="time-outline" size={14} color="#FF6B35" />
+              <Text style={styles.urgencyText}>New</Text>
             </View>
+          </View>
 
-            {/* Student Info */}
-            <View style={styles.studentInfo}>
-              <View style={styles.studentAvatar}>
-                <Ionicons
-                  name="person"
-                  size={20}
-                  color={ColorPalette.primary[500]}
-                />
-              </View>
-              <View style={styles.studentDetails}>
-                <Text style={styles.studentName}>
-                  {order.student?.full_name || "Unknown Student"}
-                </Text>
-                <Text style={styles.studentPhone}>
-                  {(order.student as any)?.phone_number || "No phone"}
-                </Text>
-              </View>
+          <View style={styles.customerInfo}>
+            <Ionicons name="person-outline" size={16} color="#666" />
+            <Text style={styles.customerName}>
+              {(order as any).student?.full_name || "Customer"}
+            </Text>
+            <View style={styles.distanceBadge}>
+              <Ionicons name="location-outline" size={12} color="#4CAF50" />
+              <Text style={styles.distanceText}>{getDistanceText(order)}</Text>
             </View>
+          </View>
 
-            {/* Order Details */}
-            <View style={styles.orderDetails}>
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="bag-outline"
-                  size={16}
-                  color={ColorPalette.neutral[600]}
-                />
-                <Text style={styles.orderDetailText}>
-                  {(order as any).items?.length || 0} items
-                </Text>
-              </View>
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={16}
-                  color={ColorPalette.neutral[600]}
-                />
-                <Text style={styles.orderDetailText} numberOfLines={1}>
-                  {order.delivery_address}
-                </Text>
-              </View>
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="navigate-outline"
-                  size={16}
-                  color={ColorPalette.neutral[600]}
-                />
-                <Text style={styles.orderDetailText}>~{distance} km away</Text>
-              </View>
+          <View style={styles.locationInfo}>
+            <Ionicons name="navigate-outline" size={16} color="#666" />
+            <Text style={styles.locationText} numberOfLines={2}>
+              {order.delivery_address || "Delivery address"}
+            </Text>
+          </View>
+
+          <View style={styles.orderSummary}>
+            <Text style={styles.itemsText}>
+              {(order as any).items?.length || 0} items
+            </Text>
+            <View style={styles.separator} />
+            <Text style={styles.estimatedTime}>Est. 30 min</Text>
+          </View>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.earningsInfo}>
+              <Text style={styles.earningsLabel}>You&apos;ll earn</Text>
+              <Text style={styles.earningsAmount}>
+                {formatCurrency(order.delivery_fee || 5.0)}
+              </Text>
             </View>
 
-            {/* Action Button */}
-            <View style={styles.orderActions}>
-              <TouchableOpacity
-                style={[
-                  styles.acceptButton,
-                  isAccepting && styles.acceptButtonLoading,
-                ]}
-                onPress={() => onAccept(order.id)}
-                disabled={isAccepting}
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={() => onAccept(order.id)}
+            >
+              <LinearGradient
+                colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
+                style={styles.acceptButtonGradient}
               >
-                <LinearGradient
-                  colors={
-                    isAccepting
-                      ? [ColorPalette.neutral[400], ColorPalette.neutral[500]]
-                      : [ColorPalette.success[500], ColorPalette.success[600]]
-                  }
-                  style={styles.acceptButtonGradient}
-                >
-                  {isAccepting ? (
-                    <Animated.View style={styles.loadingContainer}>
-                      <View style={styles.loadingDot} />
-                      <Text style={styles.acceptButtonText}>Accepting...</Text>
-                    </Animated.View>
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                      <Text style={styles.acceptButtonText}>Accept Order</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.detailsButton}
-                onPress={() => onViewDetails(order.id)}
-              >
-                <Text style={styles.detailsButtonText}>View Details</Text>
-                <Ionicons
-                  name="arrow-forward"
-                  size={16}
-                  color={ColorPalette.primary[500]}
-                />
-              </TouchableOpacity>
-            </View>
+                <Text style={styles.acceptButtonText}>Accept</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -218,25 +155,19 @@ interface AvailableOrdersProps {
   navigation: AvailableOrdersNavigationProp;
 }
 
-const { width } = Dimensions.get("window");
-const HEADER_HEIGHT = 120;
-
 const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
   navigation,
 }) => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [acceptingOrder, setAcceptingOrder] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "urgent" | "nearby"
+    "all" | "nearby" | "high-pay"
   >("all");
 
   // Animation refs
-  const scrollY = useRef(new Animated.Value(0)).current;
   const searchAnim = useRef(new Animated.Value(0)).current;
   const filterAnim = useRef(new Animated.Value(0)).current;
   const listAnim = useRef(new Animated.Value(0)).current;
@@ -262,8 +193,9 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
   }, [searchAnim, filterAnim, listAnim]);
 
   const loadOrders = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
-      setIsLoading(true);
       const result = await OrderService.getAvailableOrders();
       if (result.data) {
         setOrders(result.data);
@@ -271,105 +203,20 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
     } catch (error) {
       console.error("Failed to load orders:", error);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
-
-  const filterOrders = useCallback(() => {
-    let filtered = orders;
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(
-        (order) =>
-          order.order_number
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          order.student?.full_name
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          order.delivery_address
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()),
-      );
-    }
-
-    // Apply category filter
-    switch (selectedFilter) {
-      case "urgent":
-        filtered = filtered.filter((order) => {
-          const createdAt = new Date(order.created_at);
-          const now = new Date();
-          const hoursDiff =
-            (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-          return hoursDiff > 2;
-        });
-        break;
-      case "nearby":
-        // This would require location data - for now just show all
-        break;
-    }
-
-    setFilteredOrders(filtered);
-  }, [orders, searchQuery, selectedFilter]);
+  }, [user?.id]);
 
   useEffect(() => {
     loadOrders();
     startAnimations();
-
-    const interval = setInterval(loadOrders, 15000);
-    return () => clearInterval(interval);
   }, [loadOrders, startAnimations]);
 
-  useEffect(() => {
-    filterOrders();
-  }, [filterOrders]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadOrders();
-  }, [loadOrders]);
-
-  const acceptOrder = async (orderId: string) => {
-    if (!user?.id) return;
-
-    try {
-      setAcceptingOrder(orderId);
-      const result = await OrderService.acceptOrder(orderId, user.id);
-
-      if (result.success) {
-        Alert.alert(
-          "Order Accepted! 🎉",
-          "You've successfully accepted this order. Start shopping now?",
-          [
-            {
-              text: "Later",
-              style: "cancel",
-            },
-            {
-              text: "Start Shopping",
-              onPress: () => navigation.navigate("ShoppingList", { orderId }),
-            },
-          ],
-        );
-        loadOrders(); // Refresh the list
-      } else {
-        Alert.alert("Error", result.message || "Failed to accept order");
-      }
-    } catch (error) {
-      Alert.alert("Error", "An unexpected error occurred");
-      console.error("Accept order error:", error);
-    } finally {
-      setAcceptingOrder(null);
-    }
+  const formatCurrency = (amount: number): string => {
+    return `$${amount.toFixed(2)}`;
   };
 
-  const formatCurrency = (amount: number) => {
-    return `GH₵${amount.toFixed(2)}`;
-  };
-
-  const formatTimeAgo = (dateString: string) => {
+  const formatTime = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor(
@@ -382,118 +229,90 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
     return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
-  const isUrgent = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    return diffInHours > 2;
+  const getDistanceText = (order: Order): string => {
+    // This would normally calculate actual distance
+    const distances = ["0.5 mi", "0.8 mi", "1.2 mi", "0.3 mi", "1.5 mi"];
+    return distances[Math.floor(Math.random() * distances.length)];
   };
 
-  const calculateDistance = (order: Order) => {
-    // Mock distance calculation - in real app, use geolocation
-    return (Math.random() * 5 + 0.5).toFixed(1);
+  const handleAcceptOrder = async (orderId: string) => {
+    try {
+      const result = await OrderService.acceptOrder(orderId, user!.id);
+      if (result.data) {
+        Alert.alert(
+          "Order Accepted! 🎉",
+          "You've successfully accepted this order. Start shopping now!",
+          [
+            {
+              text: "View Orders",
+              onPress: () => navigation.navigate("AcceptedOrders"),
+            },
+          ],
+        );
+        loadOrders(); // Refresh the list
+      }
+    } catch {
+      Alert.alert("Error", "Failed to accept order. Please try again.");
+    }
   };
 
-  const renderHeader = () => {
-    const headerOpacity = scrollY.interpolate({
-      inputRange: [0, 50],
-      outputRange: [1, 0.9],
-      extrapolate: "clamp",
-    });
+  const handleViewDetails = (orderId: string) => {
+    navigation.navigate("OrderDetails", { orderId });
+  };
 
-    const headerScale = scrollY.interpolate({
-      inputRange: [0, 100],
-      outputRange: [1, 0.95],
-      extrapolate: "clamp",
-    });
+  const getFilteredOrders = () => {
+    let filtered = orders;
 
-    return (
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            opacity: headerOpacity,
-            transform: [{ scale: headerScale }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[
-            ColorPalette.primary[500],
-            ColorPalette.primary[600],
-            ColorPalette.primary[700],
-          ]}
-          style={styles.headerGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <SafeAreaView style={styles.headerContent}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <View
-                  style={styles.backButtonBlur}
-                >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(
+        (order) =>
+          order.order_number
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          (order as any).student?.full_name
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          order.delivery_address
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()),
+      );
+    }
 
-              <View style={styles.headerTitleContainer}>
-                <Text style={styles.headerTitle}>Available Orders</Text>
-                <Text style={styles.headerSubtitle}>
-                  {filteredOrders.length} orders waiting
-                </Text>
-              </View>
+    // Apply category filter
+    switch (selectedFilter) {
+      case "nearby":
+        // This would normally filter by actual distance
+        filtered = filtered.slice(0, Math.ceil(filtered.length * 0.6));
+        break;
+      case "high-pay":
+        filtered = filtered.filter((order) => (order.delivery_fee || 5) >= 8);
+        break;
+      default:
+        break;
+    }
 
-              <TouchableOpacity
-                style={styles.refreshButton}
-                onPress={() => {
-                  setIsRefreshing(true);
-                  loadOrders();
-                }}
-              >
-                <View
-                  style={styles.refreshButtonBlur}
-                >
-                  <Ionicons name="refresh" size={20} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-
-          {/* Decorative elements */}
-          <View style={styles.headerDecoration}>
-            <View style={[styles.decorativeOrb, styles.orb1]} />
-            <View style={[styles.decorativeOrb, styles.orb2]} />
-            <View style={[styles.decorativeOrb, styles.orb3]} />
-          </View>
-        </LinearGradient>
-      </Animated.View>
-    );
+    return filtered;
   };
 
   const renderSearchAndFilters = () => (
     <View style={styles.searchContainer}>
       <Animated.View
         style={[
-          styles.searchBarContainer,
+          styles.searchBar,
           {
             opacity: searchAnim,
             transform: [{ translateY: Animated.multiply(searchAnim, -20) }],
           },
         ]}
       >
-        <Searchbar
-          placeholder="Search orders, students, locations..."
+        <Ionicons name="search-outline" size={20} color="#666" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search orders..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          style={styles.searchBar}
-          inputStyle={styles.searchInput}
-          iconColor={ColorPalette.neutral[600]}
-          placeholderTextColor={ColorPalette.neutral[500]}
-          elevation={0}
+          placeholderTextColor="#999"
         />
       </Animated.View>
 
@@ -502,50 +321,40 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
           styles.filtersContainer,
           {
             opacity: filterAnim,
-            transform: [{ translateY: Animated.multiply(filterAnim, -10) }],
+            transform: [{ translateY: Animated.multiply(filterAnim, -20) }],
           },
         ]}
       >
         {[
-          { key: "all", label: "All Orders", icon: "list-outline" },
-          { key: "urgent", label: "Urgent", icon: "time-outline" },
+          { key: "all", label: "All Orders", icon: "grid-outline" },
           { key: "nearby", label: "Nearby", icon: "location-outline" },
+          { key: "high-pay", label: "High Pay", icon: "diamond-outline" },
         ].map((filter) => (
           <TouchableOpacity
             key={filter.key}
             style={[
-              styles.filterButton,
-              selectedFilter === filter.key && styles.filterButtonActive,
+              styles.filterChip,
+              selectedFilter === filter.key && styles.activeFilterChip,
             ]}
             onPress={() => setSelectedFilter(filter.key as any)}
           >
-            <LinearGradient
-              colors={
+            <Ionicons
+              name={filter.icon as any}
+              size={16}
+              color={
                 selectedFilter === filter.key
-                  ? [ColorPalette.primary[500], ColorPalette.primary[600]]
-                  : ["#FFFFFF", "#FAFAFA"]
+                  ? "#FFFFFF"
+                  : ColorPalette.primary[500]
               }
-              style={styles.filterButtonGradient}
+            />
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === filter.key && styles.activeFilterChipText,
+              ]}
             >
-              <Ionicons
-                name={filter.icon as any}
-                size={16}
-                color={
-                  selectedFilter === filter.key
-                    ? "#FFFFFF"
-                    : ColorPalette.neutral[600]
-                }
-              />
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  selectedFilter === filter.key &&
-                    styles.filterButtonTextActive,
-                ]}
-              >
-                {filter.label}
-              </Text>
-            </LinearGradient>
+              {filter.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </Animated.View>
@@ -553,468 +362,331 @@ const AvailableOrdersScreen: React.FC<AvailableOrdersProps> = ({
   );
 
   const renderEmptyState = () => (
-    <Animated.View
-      style={[
-        styles.emptyContainer,
-        {
-          opacity: listAnim,
-          transform: [{ translateY: Animated.multiply(listAnim, -20) }],
-        },
-      ]}
-    >
-      <View style={styles.emptyIconContainer}>
-        <LinearGradient
-          colors={[ColorPalette.primary[100], ColorPalette.primary[50]]}
-          style={styles.emptyIconGradient}
-        >
-          <Ionicons
-            name="bag-outline"
-            size={48}
-            color={ColorPalette.primary[500]}
-          />
-        </LinearGradient>
-      </View>
-      <Text style={styles.emptyTitle}>No Orders Available</Text>
-      <Text style={styles.emptySubtitle}>
-        Check back later for new delivery opportunities
+    <View style={styles.emptyState}>
+      <Ionicons name="basket-outline" size={64} color="#CCCCCC" />
+      <Text style={styles.emptyStateTitle}>No Orders Available</Text>
+      <Text style={styles.emptyStateSubtitle}>
+        {searchQuery.trim()
+          ? "No orders match your search criteria."
+          : "Check back later for new delivery opportunities!"}
       </Text>
-      <TouchableOpacity
-        style={styles.refreshEmptyButton}
-        onPress={() => {
-          setIsRefreshing(true);
-          loadOrders();
-        }}
-      >
-        <LinearGradient
-          colors={[ColorPalette.primary[500], ColorPalette.primary[600]]}
-          style={styles.refreshEmptyButtonGradient}
+      {searchQuery.trim() && (
+        <TouchableOpacity
+          style={styles.clearSearchButton}
+          onPress={() => setSearchQuery("")}
         >
-          <Ionicons name="refresh" size={20} color="#FFFFFF" />
-          <Text style={styles.refreshEmptyButtonText}>Refresh</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </Animated.View>
+          <Text style={styles.clearSearchText}>Clear Search</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 
+  const filteredOrders = getFilteredOrders();
+
   return (
-    <View style={styles.container}>
-      {renderHeader()}
+    <SafeAreaView style={styles.container}>
+      <RunnerHeader
+        title="Available Orders"
+        subtitle={`${filteredOrders.length} orders waiting`}
+        onBack={() => navigation.goBack()}
+        onRefresh={loadOrders}
+        isRefreshing={isRefreshing}
+        gradientColors={[
+          ColorPalette.primary[500],
+          ColorPalette.primary[600],
+          ColorPalette.primary[700],
+        ]}
+      />
+
+      {renderSearchAndFilters()}
 
       <Animated.View
         style={[
           styles.content,
           {
             opacity: listAnim,
+            transform: [{ translateY: Animated.multiply(listAnim, -20) }],
           },
         ]}
       >
-        {renderSearchAndFilters()}
-
         <AnimatedFlatList
-          data={filteredOrders as any}
-          keyExtractor={(item) => (item as Order).id}
+          data={filteredOrders}
+          keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <OrderCard
               order={item as Order}
               index={index}
-              isAccepting={acceptingOrder === (item as Order).id}
-              onAccept={acceptOrder}
-              onViewDetails={(orderId: string) =>
-                navigation.navigate("OrderDetails", { orderId })
-              }
-              calculateDistance={calculateDistance}
+              onAccept={handleAcceptOrder}
+              onViewDetails={handleViewDetails}
               formatCurrency={formatCurrency}
-              formatTime={formatTimeAgo}
-              isUrgent={isUrgent}
+              formatTime={formatTime}
+              getDistanceText={getDistanceText}
             />
           )}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={onRefresh}
+              onRefresh={() => {
+                setIsRefreshing(true);
+                loadOrders();
+              }}
               colors={[ColorPalette.primary[500]]}
-              tintColor={ColorPalette.primary[500]}
-              progressViewOffset={HEADER_HEIGHT + 100}
             />
           }
-          scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true },
-          )}
-          ListEmptyComponent={!isLoading ? renderEmptyState : null}
+          ListEmptyComponent={renderEmptyState}
         />
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ColorPalette.neutral[50],
+    backgroundColor: "#F5F7FA",
   },
-
-  // Header Styles
-  header: {
-    height: HEADER_HEIGHT + (Platform.OS === "ios" ? 44 : 24),
-    zIndex: 10,
-  },
-  headerGradient: {
-    flex: 1,
-    position: "relative",
-  },
-  headerContent: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingBottom: 16,
-  },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  backButtonBlur: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "500",
-  },
-  refreshButton: {},
-  refreshButtonBlur: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  headerDecoration: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: "100%",
-    height: "100%",
-  },
-  decorativeOrb: {
-    position: "absolute",
-    borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  orb1: {
-    width: 80,
-    height: 80,
-    top: -20,
-    right: -20,
-  },
-  orb2: {
-    width: 120,
-    height: 120,
-    top: 20,
-    right: width * 0.6,
-  },
-  orb3: {
-    width: 60,
-    height: 60,
-    bottom: -10,
-    right: width * 0.3,
-  },
-
-  // Content Styles
   content: {
     flex: 1,
-    backgroundColor: ColorPalette.neutral[50],
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -24,
-    paddingTop: 24,
   },
-
-  // Search and Filters
   searchContainer: {
-    paddingHorizontal: 18,
-    marginBottom: 20,
-    marginTop: 32,
-  },
-  searchBarContainer: {
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   searchBar: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    elevation: 0,
-    borderWidth: 1,
-    borderColor: ColorPalette.neutral[100],
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F7FA",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
   },
   searchInput: {
-    fontSize: 14,
-    color: ColorPalette.neutral[900],
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: "#333",
   },
   filtersContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 8,
   },
-  filterButton: {
-    flex: 1,
-    marginHorizontal: 4,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  filterButtonActive: {},
-  filterButtonGradient: {
+  filterChip: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F0F4F8",
+    borderWidth: 1,
+    borderColor: ColorPalette.primary[200],
   },
-  filterButtonText: {
+  activeFilterChip: {
+    backgroundColor: ColorPalette.primary[500],
+    borderColor: ColorPalette.primary[500],
+  },
+  filterChipText: {
+    marginLeft: 6,
     fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.neutral[600],
-    marginLeft: 8,
+    fontWeight: "500",
+    color: ColorPalette.primary[500],
   },
-  filterButtonTextActive: {
+  activeFilterChipText: {
     color: "#FFFFFF",
   },
-
-  // List Styles
-  listContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
+  listContent: {
+    padding: 16,
+    paddingTop: 8,
   },
-
-  // Order Card Styles
   orderCard: {
     marginBottom: 16,
   },
-  orderCardGradient: {
-    borderRadius: 20,
-    padding: 20,
-    position: "relative",
-    shadowColor: "rgba(0, 0, 0, 0.08)",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+  cardContainer: {
+    borderRadius: 16,
     elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  urgentBadge: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: ColorPalette.error[500],
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    zIndex: 1,
+  cardGradient: {
+    borderRadius: 16,
+    padding: 16,
   },
-  urgentBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginLeft: 4,
-  },
-  orderCardContent: {},
-  orderCardHeader: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  orderNumberContainer: {},
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: ColorPalette.neutral[900],
-    marginBottom: 4,
-  },
-  orderTime: {
-    fontSize: 12,
-    color: ColorPalette.neutral[500],
-    fontWeight: "500",
-  },
-  orderAmount: {
-    alignItems: "flex-end",
-  },
-  orderAmountText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: ColorPalette.success[600],
-  },
-
-  // Student Info
-  studentInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: ColorPalette.primary[50],
-    borderRadius: 12,
-  },
-  studentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  studentDetails: {
+  orderInfo: {
     flex: 1,
   },
-  studentName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: ColorPalette.neutral[900],
-    marginBottom: 2,
+  orderNumber: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1A1A1A",
   },
-  studentPhone: {
+  orderTime: {
     fontSize: 14,
-    color: ColorPalette.neutral[600],
-    fontWeight: "500",
+    color: "#666666",
+    marginTop: 2,
   },
-
-  // Order Details
-  orderDetails: {
-    marginBottom: 20,
+  urgencyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3E0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  orderDetailRow: {
+  urgencyText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: "#FF6B35",
+    fontWeight: "600",
+  },
+  customerInfo: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
   },
-  orderDetailText: {
-    fontSize: 14,
-    color: ColorPalette.neutral[600],
-    fontWeight: "500",
+  customerName: {
     marginLeft: 8,
+    fontSize: 16,
+    color: "#333333",
+    fontWeight: "500",
     flex: 1,
   },
-
-  // Order Actions
-  orderActions: {
+  distanceBadge: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#E8F5E8",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  distanceText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: "#4CAF50",
+    fontWeight: "600",
+  },
+  locationInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  locationText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666666",
+    flex: 1,
+    lineHeight: 18,
+  },
+  orderSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 8,
+  },
+  itemsText: {
+    fontSize: 14,
+    color: "#666666",
+    fontWeight: "500",
+  },
+  separator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CCCCCC",
+    marginHorizontal: 12,
+  },
+  estimatedTime: {
+    fontSize: 14,
+    color: "#666666",
+    fontWeight: "500",
+  },
+  cardFooter: {
+    flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+  },
+  earningsInfo: {
+    flex: 1,
+  },
+  earningsLabel: {
+    fontSize: 14,
+    color: "#666666",
+  },
+  earningsAmount: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#4CAF50",
+    marginTop: 2,
   },
   acceptButton: {
-    flex: 1,
-    marginRight: 12,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  acceptButtonLoading: {
-    opacity: 0.8,
+    borderRadius: 8,
   },
   acceptButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
     paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   acceptButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
     color: "#FFFFFF",
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  loadingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
     marginRight: 8,
   },
-  detailsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  detailsButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.primary[500],
-    marginRight: 4,
-  },
-
-  // Empty State
-  emptyContainer: {
+  emptyState: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingHorizontal: 32,
+    paddingTop: 64,
   },
-  emptyIconContainer: {
-    marginBottom: 24,
-  },
-  emptyIconGradient: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyTitle: {
+  emptyStateTitle: {
     fontSize: 20,
-    fontWeight: "700",
-    color: ColorPalette.neutral[900],
-    marginBottom: 8,
+    fontWeight: "bold",
+    color: "#333333",
+    marginTop: 16,
     textAlign: "center",
   },
-  emptySubtitle: {
+  emptyStateSubtitle: {
     fontSize: 16,
-    color: ColorPalette.neutral[600],
+    color: "#666666",
+    marginTop: 8,
     textAlign: "center",
-    marginBottom: 32,
     lineHeight: 22,
   },
-  refreshEmptyButton: {
-    borderRadius: 14,
-    overflow: "hidden",
+  clearSearchButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: ColorPalette.primary[500],
+    borderRadius: 8,
   },
-  refreshEmptyButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  refreshEmptyButtonText: {
+  clearSearchText: {
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
-    marginLeft: 8,
   },
 });
 

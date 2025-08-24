@@ -5,21 +5,21 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  Dimensions,
   Animated,
   Alert,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList, Order } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
+import { RunnerHeader } from "../../components/runner/RunnerHeader";
+
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 interface OrderCardProps {
@@ -58,10 +58,10 @@ const OrderCard: React.FC<OrderCardProps> = ({
           opacity: cardAnimation,
           transform: [
             {
-              translateY: Animated.multiply(
-                Animated.subtract(1, cardAnimation),
-                50,
-              ),
+              translateY: cardAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0],
+              }),
             },
           ],
         },
@@ -72,83 +72,66 @@ const OrderCard: React.FC<OrderCardProps> = ({
         onPress={() => onViewDetails(order.id)}
       >
         <LinearGradient
-          colors={["#FFFFFF", "#FEFEFE"] as const}
-          style={styles.orderCardGradient}
+          colors={["#FFFFFF", "#F8F9FA"]}
+          style={styles.cardGradient}
         >
-          <View style={styles.orderCardContent}>
-            <View style={styles.orderCardHeader}>
-              <View style={styles.orderInfoSection}>
-                <Text style={styles.orderNumber}>#{order.order_number}</Text>
-                <Text style={styles.orderTime}>
-                  {formatTime(order.created_at)}
-                </Text>
-              </View>
-              <View style={styles.orderAmount}>
-                <Text style={styles.orderAmountText}>
-                  {formatCurrency(order.total_amount)}
-                </Text>
-              </View>
+          <View style={styles.cardHeader}>
+            <View style={styles.orderInfo}>
+              <Text style={styles.orderNumber}>
+                Order #{order.order_number}
+              </Text>
+              <Text style={styles.orderTime}>
+                {formatTime(order.created_at)}
+              </Text>
+            </View>
+            <View style={[styles.statusBadge, styles.acceptedBadge]}>
+              <Text style={[styles.statusText, styles.acceptedText]}>
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.customerInfo}>
+            <Ionicons name="person-outline" size={16} color="#666" />
+            <Text style={styles.customerName}>
+              {(order as any).student?.full_name || "Customer"}
+            </Text>
+          </View>
+
+          <View style={styles.locationInfo}>
+            <Ionicons name="location-outline" size={16} color="#666" />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {order.delivery_address || "Delivery address"}
+            </Text>
+          </View>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.totalAmount}>
+                {formatCurrency(order.total_amount || 0)}
+              </Text>
+              <Text style={styles.itemCount}>
+                {(order as any).items?.length || 0} items
+              </Text>
             </View>
 
-            <View style={styles.studentInfo}>
-              <View style={styles.studentAvatar}>
-                <Ionicons
-                  name="person"
-                  size={20}
-                  color={ColorPalette.primary[500]}
-                />
-              </View>
-              <View style={styles.studentDetails}>
-                <Text style={styles.studentName}>
-                  {order.student?.full_name || "Unknown Student"}
-                </Text>
-                <Text style={styles.studentPhone}>
-                  {(order.student as any)?.phone_number || "No phone"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.orderDetails}>
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="bag-outline"
-                  size={16}
-                  color={ColorPalette.neutral[600]}
-                />
-                <Text style={styles.orderDetailText}>
-                  {(order as any).items?.length || 0} items
-                </Text>
-              </View>
-              <View style={styles.orderDetailRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={16}
-                  color={ColorPalette.neutral[600]}
-                />
-                <Text style={styles.orderDetailText} numberOfLines={1}>
-                  {order.delivery_address}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.orderActions}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => onStartDelivery(order.id)}
-              >
-                <LinearGradient
-                  colors={
-                    [
+            <View style={styles.actionButtons}>
+              {order.status === "accepted" && (
+                <TouchableOpacity
+                  style={styles.startButton}
+                  onPress={() => onStartDelivery(order.id)}
+                >
+                  <LinearGradient
+                    colors={[
                       ColorPalette.primary[500],
                       ColorPalette.primary[600],
-                    ] as const
-                  }
-                  style={styles.actionButtonGradient}
-                >
-                  <Ionicons name="play" size={18} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Start Delivery</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                    ]}
+                    style={styles.startButtonGradient}
+                  >
+                    <Text style={styles.startButtonText}>Start Shopping</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.detailsButton}
@@ -178,34 +161,23 @@ interface AcceptedOrdersProps {
   navigation: AcceptedOrdersNavigationProp;
 }
 
-const { width } = Dimensions.get("window");
-const HEADER_HEIGHT = 120;
-
 const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
   navigation,
 }) => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTab, setSelectedTab] = useState<
     "active" | "shopping" | "delivering"
   >("active");
 
   // Animation refs
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerAnim = useRef(new Animated.Value(0)).current;
   const tabAnim = useRef(new Animated.Value(0)).current;
   const listAnim = useRef(new Animated.Value(0)).current;
 
   const startAnimations = useCallback(() => {
     Animated.stagger(200, [
-      Animated.timing(headerAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
       Animated.timing(tabAnim, {
         toValue: 1,
         duration: 600,
@@ -217,13 +189,12 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [headerAnim, tabAnim, listAnim]);
+  }, [tabAnim, listAnim]);
 
   const loadOrders = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      setIsLoading(true);
       const result = await OrderService.getRunnerActiveOrders(user.id);
       if (result.data) {
         setOrders(result.data);
@@ -231,7 +202,6 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
     } catch (error) {
       console.error("Failed to load orders:", error);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [user?.id]);
@@ -239,159 +209,51 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
   useEffect(() => {
     loadOrders();
     startAnimations();
-
-    const interval = setInterval(loadOrders, 30000);
-    return () => clearInterval(interval);
   }, [loadOrders, startAnimations]);
 
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadOrders();
-  }, [loadOrders]);
+  const formatCurrency = (amount: number): string => {
+    return `$${amount.toFixed(2)}`;
+  };
 
-  const updateOrderStatus = async (
-    orderId: string,
-    status: "shopping" | "delivering" | "delivered",
-  ) => {
+  const formatTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const handleStartDelivery = async (orderId: string) => {
     try {
       const result = await OrderService.updateOrderStatus(
         orderId,
-        status as any,
+        "shopping" as any,
       );
-
       if (result.data) {
-        await loadOrders();
-
-        if (status === "delivered") {
-          Alert.alert(
-            "Order Completed! 🎉",
-            "Great job! The order has been marked as completed.",
-            [{ text: "OK" }],
-          );
-        }
-      } else {
-        Alert.alert("Error", "Failed to update order status");
+        navigation.navigate("ShoppingList", { orderId });
       }
-    } catch (error) {
-      Alert.alert("Error", "An unexpected error occurred");
-      console.error("Update order error:", error);
+    } catch {
+      Alert.alert("Error", "Failed to start shopping");
     }
   };
 
-  const startDelivery = (orderId: string) => {
-    updateOrderStatus(orderId, "delivering");
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `GH₵${amount.toFixed(2)}`;
-  };
-
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60),
-    );
-
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    return `${Math.floor(diffInHours / 24)}d ago`;
+  const handleViewDetails = (orderId: string) => {
+    navigation.navigate("OrderDetails", { orderId });
   };
 
   const getFilteredOrders = () => {
-    switch (selectedTab) {
-      case "shopping":
-        return orders.filter((order) => order.status === "shopping");
-      case "delivering":
-        return orders.filter((order) => order.status === "delivering");
-      default:
-        return orders;
-    }
-  };
-
-  const renderHeader = () => {
-    const headerOpacity = scrollY.interpolate({
-      inputRange: [0, 50],
-      outputRange: [1, 0.9],
-      extrapolate: "clamp",
+    return orders.filter((order) => {
+      switch (selectedTab) {
+        case "active":
+          return order.status === "accepted";
+        case "shopping":
+          return order.status === "shopping";
+        case "delivering":
+          return order.status === "delivering";
+        default:
+          return true;
+      }
     });
-
-    const headerScale = scrollY.interpolate({
-      inputRange: [0, 100],
-      outputRange: [1, 0.95],
-      extrapolate: "clamp",
-    });
-
-    return (
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            opacity: Animated.multiply(headerOpacity, headerAnim),
-            transform: [{ scale: headerScale }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[
-            ColorPalette.secondary[500],
-            ColorPalette.secondary[600],
-            ColorPalette.secondary[700],
-          ]}
-          style={styles.headerGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <SafeAreaView style={styles.headerContent}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <BlurView
-                  intensity={20}
-                  tint="light"
-                  style={styles.backButtonBlur}
-                >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </BlurView>
-              </TouchableOpacity>
-
-              <View style={styles.headerTitleContainer}>
-                <Text style={styles.headerTitle}>Active Orders</Text>
-                <Text style={styles.headerSubtitle}>
-                  {orders.length} orders in progress
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.refreshButton}
-                onPress={() => {
-                  setIsRefreshing(true);
-                  loadOrders();
-                }}
-              >
-                <BlurView
-                  intensity={20}
-                  tint="light"
-                  style={styles.refreshButtonBlur}
-                >
-                  <Ionicons name="refresh" size={20} color="#FFFFFF" />
-                </BlurView>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-
-          {/* Decorative elements */}
-          <View style={styles.headerDecoration}>
-            <View style={[styles.decorativeOrb, styles.orb1]} />
-            <View style={[styles.decorativeOrb, styles.orb2]} />
-            <View style={[styles.decorativeOrb, styles.orb3]} />
-          </View>
-        </LinearGradient>
-      </Animated.View>
-    );
   };
 
   const renderTabs = () => (
@@ -404,118 +266,52 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
         },
       ]}
     >
-      {[
-        { key: "active", label: "All Active", icon: "list-outline" },
-        { key: "shopping", label: "Shopping", icon: "bag-outline" },
-        { key: "delivering", label: "Delivering", icon: "navigate-outline" },
-      ].map((tab) => {
-        const isActive = selectedTab === tab.key;
-        const count =
-          tab.key === "active"
-            ? orders.length
-            : orders.filter((order) => order.status === tab.key).length;
-
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tabButton, isActive && styles.tabButtonActive]}
-            onPress={() => setSelectedTab(tab.key as any)}
+      {["active", "shopping", "delivering"].map((tab) => (
+        <TouchableOpacity
+          key={tab}
+          style={[styles.tab, selectedTab === tab && styles.activeTab]}
+          onPress={() => setSelectedTab(tab as any)}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              selectedTab === tab && styles.activeTabText,
+            ]}
           >
-            <LinearGradient
-              colors={
-                isActive
-                  ? [ColorPalette.secondary[500], ColorPalette.secondary[600]]
-                  : ["#FFFFFF", "#FAFAFA"]
-              }
-              style={styles.tabButtonGradient}
-            >
-              <Ionicons
-                name={tab.icon as any}
-                size={18}
-                color={isActive ? "#FFFFFF" : ColorPalette.neutral[600]}
-              />
-              <Text
-                style={[
-                  styles.tabButtonText,
-                  isActive && styles.tabButtonTextActive,
-                ]}
-              >
-                {tab.label}
-              </Text>
-              {count > 0 && (
-                <View
-                  style={[
-                    styles.tabBadge,
-                    {
-                      backgroundColor: isActive
-                        ? "rgba(255,255,255,0.3)"
-                        : ColorPalette.secondary[500],
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tabBadgeText,
-                      { color: isActive ? "#FFFFFF" : "#FFFFFF" },
-                    ]}
-                  >
-                    {count}
-                  </Text>
-                </View>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        );
-      })}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)} (
+            {orders.filter((order) => order.status === tab).length})
+          </Text>
+        </TouchableOpacity>
+      ))}
     </Animated.View>
   );
 
   const renderEmptyState = () => (
-    <Animated.View
-      style={[
-        styles.emptyContainer,
-        {
-          opacity: listAnim,
-          transform: [{ translateY: Animated.multiply(listAnim, -20) }],
-        },
-      ]}
-    >
-      <View style={styles.emptyIconContainer}>
-        <LinearGradient
-          colors={[ColorPalette.secondary[100], ColorPalette.secondary[50]]}
-          style={styles.emptyIconGradient}
-        >
-          <Ionicons
-            name="checkmark-circle-outline"
-            size={48}
-            color={ColorPalette.secondary[500]}
-          />
-        </LinearGradient>
-      </View>
-      <Text style={styles.emptyTitle}>No Active Orders</Text>
-      <Text style={styles.emptySubtitle}>
-        Accept some orders to see them here
+    <View style={styles.emptyState}>
+      <Ionicons name="clipboard-outline" size={64} color="#CCCCCC" />
+      <Text style={styles.emptyStateTitle}>No Orders Found</Text>
+      <Text style={styles.emptyStateSubtitle}>
+        You don&apos;t have any {selectedTab} orders at the moment.
       </Text>
-      <TouchableOpacity
-        style={styles.browseOrdersButton}
-        onPress={() => navigation.navigate("AvailableOrders")}
-      >
-        <LinearGradient
-          colors={[ColorPalette.secondary[500], ColorPalette.secondary[600]]}
-          style={styles.browseOrdersGradient}
-        >
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.browseOrdersText}>Browse Orders</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 
-  const filteredOrders = getFilteredOrders();
-
   return (
-    <View style={styles.container}>
-      {renderHeader()}
+    <SafeAreaView style={styles.container}>
+      <RunnerHeader
+        title="Active Orders"
+        subtitle={`${orders.length} orders in progress`}
+        onBack={() => navigation.goBack()}
+        onRefresh={loadOrders}
+        isRefreshing={isRefreshing}
+        gradientColors={[
+          ColorPalette.secondary[500],
+          ColorPalette.secondary[600],
+          ColorPalette.secondary[700],
+        ]}
+      />
+
+      {renderTabs()}
 
       <Animated.View
         style={[
@@ -525,487 +321,235 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
           },
         ]}
       >
-        {renderTabs()}
-
         <AnimatedFlatList
-          data={filteredOrders as any}
-          keyExtractor={(item) => (item as Order).id}
+          data={getFilteredOrders()}
+          keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <OrderCard
               order={item as Order}
               index={index}
-              onStartDelivery={startDelivery}
-              onViewDetails={(orderId: string) =>
-                navigation.navigate("OrderDetails", { orderId })
-              }
+              onStartDelivery={handleStartDelivery}
+              onViewDetails={handleViewDetails}
               formatCurrency={formatCurrency}
-              formatTime={formatTimeAgo}
+              formatTime={formatTime}
             />
           )}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              colors={[ColorPalette.secondary[500]]}
-              tintColor={ColorPalette.secondary[500]}
-              progressViewOffset={HEADER_HEIGHT}
+              onRefresh={() => {
+                setIsRefreshing(true);
+                loadOrders();
+              }}
+              colors={[ColorPalette.primary[500]]}
             />
           }
-          scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true },
-          )}
-          ListEmptyComponent={!isLoading ? renderEmptyState : null}
+          ListEmptyComponent={renderEmptyState}
         />
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ColorPalette.neutral[50],
+    backgroundColor: "#F5F7FA",
   },
-
-  // Header Styles
-  header: {
-    height: HEADER_HEIGHT + (Platform.OS === "ios" ? 44 : 24),
-    zIndex: 10,
-  },
-  headerGradient: {
-    flex: 1,
-    position: "relative",
-  },
-  headerContent: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingBottom: 16,
-  },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  backButtonBlur: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "500",
-  },
-  refreshButton: {},
-  refreshButtonBlur: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  headerDecoration: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: "100%",
-    height: "100%",
-  },
-  decorativeOrb: {
-    position: "absolute",
-    borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  orb1: {
-    width: 80,
-    height: 80,
-    top: -20,
-    right: -20,
-  },
-  orb2: {
-    width: 120,
-    height: 120,
-    top: 20,
-    right: width * 0.6,
-  },
-  orb3: {
-    width: 60,
-    height: 60,
-    bottom: -10,
-    right: width * 0.3,
-  },
-
-  // Content Styles
   content: {
     flex: 1,
-    backgroundColor: ColorPalette.neutral[50],
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -24,
-    paddingTop: 24,
   },
-
-  // Tabs
   tabsContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
-    marginBottom: 20,
-    justifyContent: "space-between",
-  },
-  tabButton: {
-    flex: 1,
-    marginHorizontal: 4,
+    paddingVertical: 16,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
+    marginTop: 16,
     borderRadius: 12,
-    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  tabButtonActive: {},
-  tabButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    position: "relative",
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.neutral[600],
-    marginLeft: 8,
-  },
-  tabButtonTextActive: {
-    color: "#FFFFFF",
-  },
-  tabBadge: {
-    position: "absolute",
-    top: 6,
-    right: 8,
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    minWidth: 16,
-    height: 16,
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
   },
-  tabBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
+  activeTab: {
+    backgroundColor: ColorPalette.secondary[500],
   },
-
-  // List Styles
-  listContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
+  tabText: {
+    fontSize: 14,
+    color: "#666666",
+    fontWeight: "500",
   },
-
-  // Order Card Styles
+  activeTabText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  listContent: {
+    padding: 16,
+    paddingTop: 8,
+  },
   orderCard: {
     marginBottom: 16,
-  },
-  orderCardGradient: {
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "rgba(0, 0, 0, 0.08)",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+    borderRadius: 16,
     elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  orderCardContent: {},
-  orderCardHeader: {
+  cardGradient: {
+    borderRadius: 16,
+    padding: 16,
+  },
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  orderInfoSection: {},
+  orderInfo: {
+    flex: 1,
+  },
   orderNumber: {
     fontSize: 18,
-    fontWeight: "700",
-    color: ColorPalette.neutral[900],
-    marginBottom: 4,
+    fontWeight: "bold",
+    color: "#1A1A1A",
   },
   orderTime: {
-    fontSize: 12,
-    color: ColorPalette.neutral[500],
-    fontWeight: "500",
-  },
-  statusSection: {},
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginLeft: 4,
-  },
-
-  // Student Info
-  studentInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: ColorPalette.secondary[50],
-    borderRadius: 12,
-  },
-  studentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  studentDetails: {
-    flex: 1,
-  },
-  studentName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: ColorPalette.neutral[900],
-    marginBottom: 2,
-  },
-  studentContact: {
     fontSize: 14,
-    color: ColorPalette.neutral[600],
-    fontWeight: "500",
-  },
-  callButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Order Details
-  orderDetails: {
-    marginBottom: 16,
-  },
-  orderDetailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  orderDetailText: {
-    fontSize: 14,
-    color: ColorPalette.neutral[600],
-    fontWeight: "500",
-    marginLeft: 8,
-    flex: 1,
-  },
-
-  // Progress
-  progressContainer: {
-    marginBottom: 20,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.neutral[700],
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: ColorPalette.neutral[200],
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressTrack: {
-    flex: 1,
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-
-  // Action Buttons
-  actionButtons: {
-    gap: 12,
-  },
-  primaryActionButton: {
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  primaryActionGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-  },
-  primaryActionText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginLeft: 8,
-  },
-  secondaryActionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: ColorPalette.secondary[200],
-    backgroundColor: "#FFFFFF",
-  },
-  secondaryActionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.secondary[500],
-    marginRight: 4,
-  },
-  completeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    backgroundColor: ColorPalette.success[50],
-    borderWidth: 1,
-    borderColor: ColorPalette.success[200],
-  },
-  completeButtonLoading: {
-    opacity: 0.6,
-  },
-  completeButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: ColorPalette.success[600],
-    marginLeft: 4,
-  },
-
-  // Empty State
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  emptyIconContainer: {
-    marginBottom: 24,
-  },
-  emptyIconGradient: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: ColorPalette.neutral[900],
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: ColorPalette.neutral[600],
-    textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  browseOrdersButton: {
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  browseOrdersGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  browseOrdersText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-
-  // Missing OrderCard styles
-  orderAmount: {
-    alignItems: "flex-end",
-  },
-  orderAmountText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: ColorPalette.success[600],
-  },
-
-  studentPhone: {
-    fontSize: 14,
-    color: ColorPalette.neutral[600],
+    color: "#666666",
     marginTop: 2,
   },
-  orderActions: {
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  acceptedBadge: {
+    backgroundColor: "#E3F2FD",
+  },
+  shoppingBadge: {
+    backgroundColor: "#FFF3E0",
+  },
+  deliveringBadge: {
+    backgroundColor: "#E8F5E8",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  acceptedText: {
+    color: ColorPalette.primary[600],
+  },
+  shoppingText: {
+    color: "#F57C00",
+  },
+  deliveringText: {
+    color: "#4CAF50",
+  },
+  customerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 16,
+    marginBottom: 8,
   },
-  actionButton: {
+  customerName: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: "#333333",
+    fontWeight: "500",
+  },
+  locationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  locationText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666666",
     flex: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-    marginRight: 12,
   },
-  actionButtonGradient: {
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  priceContainer: {
+    flex: 1,
+  },
+  totalAmount: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: ColorPalette.primary[600],
+  },
+  itemCount: {
+    fontSize: 14,
+    color: "#666666",
+    marginTop: 2,
+  },
+  actionButtons: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    gap: 8,
   },
-  actionButtonText: {
+  startButton: {
+    borderRadius: 8,
+  },
+  startButtonGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  startButtonText: {
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
-    marginLeft: 4,
   },
   detailsButton: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: ColorPalette.primary[500],
   },
   detailsButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
     color: ColorPalette.primary[500],
+    fontSize: 14,
+    fontWeight: "600",
     marginRight: 4,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    paddingTop: 64,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333333",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  emptyStateSubtitle: {
+    fontSize: 16,
+    color: "#666666",
+    marginTop: 8,
+    textAlign: "center",
+    lineHeight: 22,
   },
 });
 

@@ -13,12 +13,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList, Order, RunnerStats } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { OrderService } from "@/services/orderService";
 import { ColorPalette } from "../../theme/colors";
+import { RunnerHeroSection } from "../../components/runner/RunnerHeroSection";
 
 type RunnerDashboardNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -56,8 +57,6 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
 
   // Animation refs
   const scrollY = useRef(new Animated.Value(0)).current;
-  const heroOpacity = useRef(new Animated.Value(0)).current;
-  const heroScale = useRef(new Animated.Value(0.9)).current;
   const cardAnimations = useRef(
     Array(6)
       .fill(0)
@@ -68,26 +67,10 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
       .fill(0)
       .map(() => new Animated.Value(50)),
   ).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatingActionAnim = useRef(new Animated.Value(0)).current;
 
   // Start entrance animations
   const startAnimations = useCallback(() => {
-    // Hero animation
-    Animated.parallel([
-      Animated.timing(heroOpacity, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.spring(heroScale, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
     // Staggered card animations
     const cardStagger = cardAnimations.map((anim, index) =>
       Animated.timing(anim, {
@@ -115,32 +98,8 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
       useNativeDriver: true,
     }).start();
 
-    // Pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ]),
-      { iterations: -1 },
-    ).start();
-
     Animated.stagger(100, [...cardStagger, ...slideStagger]).start();
-  }, [
-    cardAnimations,
-    slideAnimations,
-    heroOpacity,
-    heroScale,
-    floatingActionAnim,
-    pulseAnim,
-  ]);
+  }, [cardAnimations, slideAnimations, floatingActionAnim]);
 
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
@@ -176,17 +135,6 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
     return () => clearInterval(interval);
   }, [loadDashboardData, startAnimations]);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `GH₵${amount.toFixed(2)}`;
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -205,99 +153,28 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
   };
 
   // Header parallax effect
-  const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, HERO_HEIGHT],
-    outputRange: [0, -HERO_HEIGHT / 2],
-    extrapolate: "clamp",
-  });
+  const formatCurrency = (amount: number): string => {
+    return `$${amount.toFixed(2)}`;
+  };
 
-  const headerOpacityInterpolate = scrollY.interpolate({
-    inputRange: [0, HERO_HEIGHT - 100, HERO_HEIGHT],
-    outputRange: [1, 0.8, 0],
-    extrapolate: "clamp",
-  });
+  const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
 
   const renderHeroSection = () => (
-    <Animated.View
-      style={[
-        styles.heroContainer,
-        {
-          transform: [{ translateY: headerTranslateY }, { scale: heroScale }],
-          opacity: Animated.multiply(heroOpacity, headerOpacityInterpolate),
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={[ColorPalette.primary[500], ColorPalette.primary[600]] as const}
-        style={styles.heroGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.heroBackground}>
-          {/* Decorative elements */}
-          <View style={styles.decorativeElements}>
-            <Animated.View
-              style={[
-                styles.floatingOrb,
-                styles.orb1,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.floatingOrb,
-                styles.orb2,
-                {
-                  transform: [
-                    {
-                      scale: Animated.subtract(
-                        1.2,
-                        Animated.subtract(pulseAnim, 1),
-                      ),
-                    },
-                  ],
-                },
-              ]}
-            />
-            <View style={[styles.floatingOrb, styles.orb3]} />
-          </View>
-
-          <View style={[styles.heroContent]}>
-            <View style={styles.greetingSection}>
-              <Text style={styles.greeting}>{getGreeting()},</Text>
-              <Text style={styles.userName}>
-                {profile?.full_name?.split(" ")[0] || "Runner"}! 👋
-              </Text>
-              <Text style={styles.heroSubtitle}>
-                Ready to make some deliveries?
-              </Text>
-            </View>
-
-            <View style={styles.heroStatsContainer}>
-              <View style={styles.heroStatCard}>
-                <View style={styles.blurCard}>
-                  <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
-                  <Text style={styles.heroStatValue}>
-                    {formatCurrency(stats.total_earnings || 0)}
-                  </Text>
-                  <Text style={styles.heroStatLabel}>Total Earnings</Text>
-                </View>
-              </View>
-
-              <View style={styles.heroStatCard}>
-                <View style={styles.blurCard}>
-                  <Ionicons name="star" size={24} color="#FFD700" />
-                  <Text style={styles.heroStatValue}>
-                    {stats.average_rating?.toFixed(1) || "0.0"}
-                  </Text>
-                  <Text style={styles.heroStatLabel}>Rating</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-    </Animated.View>
+    <RunnerHeroSection
+      greeting={getGreeting()}
+      userName={profile?.full_name?.split(" ")[0] || "Runner"}
+      subtitle="Ready to make some deliveries?"
+      stats={{
+        totalEarnings: stats.total_earnings || 0,
+        averageRating: stats.average_rating || 0,
+      }}
+      formatCurrency={formatCurrency}
+    />
   );
 
   const renderQuickActions = () => (
@@ -387,7 +264,7 @@ const RunnerDashboardScreen: React.FC<RunnerDashboardProps> = ({
                   <Animated.View
                     style={[
                       styles.quickActionBadge,
-                      { transform: [{ scale: pulseAnim }] },
+                      { transform: [{ scale: 1 }] },
                     ]}
                   >
                     <Text style={styles.quickActionBadgeText}>
@@ -729,7 +606,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: -59
+    marginTop: -59,
   },
   scrollContent: {
     paddingBottom: 100,

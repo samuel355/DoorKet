@@ -7,17 +7,19 @@ import {
   Animated,
   Alert,
   Image,
+  StatusBar,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+
 import { Text, Portal, Dialog, Button, TextInput } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+
 import * as ImagePicker from "expo-image-picker";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RunnerStackParamList } from "@/types";
 import { useAuth } from "@/store/authStore";
 import { ColorPalette } from "../../theme/colors";
+import { RunnerHeader } from "../../components/runner/RunnerHeader";
 
 type RunnerProfileNavigationProp = StackNavigationProp<
   RunnerStackParamList,
@@ -63,7 +65,6 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
   });
 
   // Animation refs
-  const scrollY = useRef(new Animated.Value(0)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnimations = useRef(
     Array(8)
@@ -71,22 +72,33 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
       .map(() => new Animated.Value(0)),
   ).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const switchAnim = useRef(new Animated.Value(0)).current;
+  const heroScale = useRef(new Animated.Value(0.9)).current;
+  const togglePosition = useRef(
+    new Animated.Value(isAvailable ? 22 : 2),
+  ).current;
 
   const startAnimations = useCallback(() => {
     // Header animation
-    Animated.timing(headerAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(heroScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     // Staggered card animations
     const cardStagger = cardAnimations.map((anim, index) =>
       Animated.timing(anim, {
         toValue: 1,
         duration: 600,
-        delay: index * 100,
+        delay: index * 80,
         useNativeDriver: true,
       }),
     );
@@ -108,14 +120,7 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
         }),
       ]),
     ).start();
-
-    // Availability switch animation
-    Animated.timing(switchAnim, {
-      toValue: isAvailable ? 1 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [headerAnim, cardAnimations, pulseAnim, switchAnim, isAvailable]);
+  }, [headerAnim, heroScale, cardAnimations, pulseAnim]);
 
   useEffect(() => {
     loadProfileData();
@@ -143,10 +148,10 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
 
   const handleUpdateAvailability = (available: boolean) => {
     setIsAvailable(available);
-    Animated.timing(switchAnim, {
-      toValue: available ? 1 : 0,
+    Animated.timing(togglePosition, {
+      toValue: available ? 22 : 2,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -189,219 +194,6 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
 
   const formatCurrency = (amount: number) => {
     return `GH₵${amount.toFixed(2)}`;
-  };
-
-  const getBadgeColor = (badge: string) => {
-    switch (badge) {
-      case "bronze":
-        return ColorPalette.accent[600];
-      case "silver":
-        return ColorPalette.neutral[400];
-      case "gold":
-        return ColorPalette.warning[500];
-      case "platinum":
-        return ColorPalette.primary[500];
-      default:
-        return ColorPalette.neutral[500];
-    }
-  };
-
-  const getBadgeIcon = (badge: string) => {
-    switch (badge) {
-      case "bronze":
-        return "medal-outline";
-      case "silver":
-        return "medal-outline";
-      case "gold":
-        return "trophy-outline";
-      case "platinum":
-        return "diamond-outline";
-      default:
-        return "star-outline";
-    }
-  };
-
-  const renderHeader = () => {
-    const headerScale = scrollY.interpolate({
-      inputRange: [0, HEADER_HEIGHT],
-      outputRange: [1, 0.8],
-      extrapolate: "clamp",
-    });
-
-    const headerOpacity = scrollY.interpolate({
-      inputRange: [0, HEADER_HEIGHT - 100, HEADER_HEIGHT],
-      outputRange: [1, 0.8, 0],
-      extrapolate: "clamp",
-    });
-
-    return (
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            opacity: Animated.multiply(headerOpacity, headerAnim),
-            transform: [{ scale: headerScale }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={
-            [
-              ColorPalette.primary[400],
-              ColorPalette.primary[500],
-              ColorPalette.primary[600],
-            ] as const
-          }
-          style={styles.headerGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <SafeAreaView style={styles.headerContent}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <BlurView
-                  intensity={20}
-                  tint="light"
-                  style={styles.backButtonBlur}
-                >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </BlurView>
-              </TouchableOpacity>
-
-              <View style={styles.headerTitleContainer}>
-                <Text style={styles.headerTitle}>My Profile</Text>
-                <Text style={styles.headerSubtitle}>Runner Dashboard</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => setShowEditDialog(true)}
-              >
-                <BlurView
-                  intensity={20}
-                  tint="light"
-                  style={styles.editButtonBlur}
-                >
-                  <Ionicons name="create-outline" size={20} color="#FFFFFF" />
-                </BlurView>
-              </TouchableOpacity>
-            </View>
-
-            {/* Profile Avatar and Info */}
-            <View style={styles.profileSection}>
-              <Animated.View
-                style={[
-                  styles.avatarContainer,
-                  { transform: [{ scale: pulseAnim }] },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.avatarTouchable}
-                  onPress={handleImagePicker}
-                >
-                  <BlurView
-                    intensity={30}
-                    tint="light"
-                    style={styles.avatarBlur}
-                  >
-                    {(profile as any)?.avatar_url ? (
-                      <Image
-                        source={{ uri: (profile as any).avatar_url }}
-                        style={styles.avatarImage}
-                      />
-                    ) : (
-                      <Ionicons name="person" size={48} color="#FFFFFF" />
-                    )}
-                  </BlurView>
-                  <View style={styles.editAvatarIcon}>
-                    <Ionicons name="camera" size={16} color="#FFFFFF" />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Badge */}
-                <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: getBadgeColor(stats.badge) },
-                  ]}
-                >
-                  <Ionicons
-                    name={getBadgeIcon(stats.badge) as any}
-                    size={16}
-                    color="#FFFFFF"
-                  />
-                </View>
-              </Animated.View>
-
-              <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>
-                  {profile?.full_name || "Runner Name"}
-                </Text>
-                <Text style={styles.profileTitle}>
-                  {stats.badge.charAt(0).toUpperCase() + stats.badge.slice(1)}{" "}
-                  Runner
-                </Text>
-                <Text style={styles.profileJoined}>
-                  Member since {new Date(stats.joinedDate).getFullYear()}
-                </Text>
-
-                {/* Availability Toggle */}
-                <View style={styles.availabilityContainer}>
-                  <Animated.View
-                    style={[
-                      styles.availabilityToggle,
-                      {
-                        backgroundColor: switchAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [
-                            ColorPalette.neutral[400],
-                            ColorPalette.success[500],
-                          ],
-                        }),
-                      },
-                    ]}
-                  >
-                    <TouchableOpacity
-                      style={styles.toggleButton}
-                      onPress={() => handleUpdateAvailability(!isAvailable)}
-                    >
-                      <Animated.View
-                        style={[
-                          styles.toggleIndicator,
-                          {
-                            transform: [
-                              {
-                                translateX: switchAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [2, 22],
-                                }),
-                              },
-                            ],
-                          },
-                        ]}
-                      />
-                    </TouchableOpacity>
-                  </Animated.View>
-                  <Text style={styles.availabilityText}>
-                    {isAvailable ? "Available for Orders" : "Currently Offline"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </SafeAreaView>
-
-          {/* Decorative elements */}
-          <View style={styles.headerDecoration}>
-            <View style={[styles.decorativeOrb, styles.orb1]} />
-            <View style={[styles.decorativeOrb, styles.orb2]} />
-            <View style={[styles.decorativeOrb, styles.orb3]} />
-          </View>
-        </LinearGradient>
-      </Animated.View>
-    );
   };
 
   const renderStatsCards = () => (
@@ -656,21 +448,88 @@ const RunnerProfileScreen: React.FC<RunnerProfileProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {renderHeader()}
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={ColorPalette.primary[500]}
+        translucent
+      />
+
+      <RunnerHeader
+        title="My Profile"
+        subtitle="Runner Dashboard"
+        onBack={() => navigation.goBack()}
+        onRefresh={() => setShowEditDialog(true)}
+        gradientColors={[
+          ColorPalette.primary[400],
+          ColorPalette.primary[500],
+          ColorPalette.primary[600],
+        ]}
+        showDecorations={true}
+      />
 
       <Animated.ScrollView
-        style={styles.content}
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
-        )}
+        bounces={true}
+        bouncesZoom={false}
+        alwaysBounceVertical={true}
+        decelerationRate="normal"
       >
-        {renderStatsCards()}
-        {renderMenuItems()}
-        {renderSignOutButton()}
+        {/* Profile Info Section */}
+        <View style={styles.profileSectionCard}>
+          <View style={styles.profileInfo}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={48} color="#FFFFFF" />
+              </View>
+            </View>
+            <View style={styles.profileDetails}>
+              <Text style={styles.profileName}>
+                {profile?.full_name || "Runner Name"}
+              </Text>
+              <Text style={styles.profileEmail}>
+                {profile?.email || "runner@example.com"}
+              </Text>
+              <View style={styles.availabilityRow}>
+                <View
+                  style={[
+                    styles.availabilityToggle,
+                    {
+                      backgroundColor: isAvailable
+                        ? ColorPalette.success[500]
+                        : ColorPalette.neutral[400],
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.toggleButton}
+                    onPress={() => handleUpdateAvailability(!isAvailable)}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.toggleIndicator,
+                        {
+                          left: togglePosition,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.availabilityText}>
+                  {isAvailable ? "Available" : "Offline"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.content}>
+          {renderStatsCards()}
+          {renderMenuItems()}
+          {renderSignOutButton()}
+        </View>
       </Animated.ScrollView>
 
       {renderEditDialog()}
@@ -683,15 +542,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: ColorPalette.neutral[50],
   },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
 
   // Header Styles
   header: {
     height: HEADER_HEIGHT,
-    zIndex: 10,
   },
   headerGradient: {
     flex: 1,
-    position: "relative",
   },
   headerContent: {
     flex: 1,
@@ -701,8 +565,9 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 10,
   },
   backButton: {
     marginRight: 16,
@@ -740,42 +605,34 @@ const styles = StyleSheet.create({
   },
 
   // Profile Section
-  profileSection: {
+  profileSectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    margin: 16,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  profileInfo: {
+    flexDirection: "row",
+    padding: 20,
     alignItems: "center",
-    paddingHorizontal: 20,
   },
   avatarContainer: {
-    position: "relative",
-    marginBottom: 16,
+    marginRight: 16,
   },
-  avatarTouchable: {
-    position: "relative",
-  },
-  avatarBlur: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 4,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-  },
-  avatarImage: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-  },
-  editAvatarIcon: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: ColorPalette.primary[500],
     alignItems: "center",
     justifyContent: "center",
+  },
+  profileDetails: {
+    flex: 1,
   },
   badge: {
     position: "absolute",
@@ -789,40 +646,31 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#FFFFFF",
   },
-  profileInfo: {
-    alignItems: "center",
-  },
-  profileName: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  profileTitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  profileJoined: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.7)",
-    fontWeight: "500",
-    marginBottom: 20,
-  },
 
-  // Availability Toggle
-  availabilityContainer: {
+  profileName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1A1A1A",
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: "#666666",
+    marginBottom: 12,
+  },
+  availabilityRow: {
     flexDirection: "row",
     alignItems: "center",
   },
+
+  // Availability Toggle
+
   availabilityToggle: {
-    width: 44,
+    width: 48,
     height: 24,
     borderRadius: 12,
-    marginRight: 12,
     justifyContent: "center",
+    marginBottom: 8,
   },
   toggleButton: {
     flex: 1,
@@ -833,6 +681,20 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: "#FFFFFF",
+    position: "absolute",
+  },
+  cameraOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: ColorPalette.primary[500],
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   availabilityText: {
     fontSize: 16,
@@ -872,14 +734,6 @@ const styles = StyleSheet.create({
     right: width * 0.3,
   },
 
-  // Content
-  content: {
-    flex: 1,
-    backgroundColor: ColorPalette.neutral[50],
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -24,
-  },
   scrollContent: {
     paddingTop: 24,
     paddingBottom: 100,
