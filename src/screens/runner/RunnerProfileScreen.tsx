@@ -6,7 +6,6 @@ import {
   Dimensions,
   Animated,
   Alert,
-  Image,
   StatusBar,
 } from "react-native";
 

@@ -12,6 +12,7 @@ import { ColorPalette } from "../../theme/colors";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.32;
+console.log(width)
 
 interface RunnerHeroSectionProps {
   greeting: string;

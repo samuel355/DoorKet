@@ -323,7 +323,7 @@ const AcceptedOrdersScreen: React.FC<AcceptedOrdersProps> = ({
       >
         <AnimatedFlatList
           data={getFilteredOrders()}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={({ item, index }) => (
             <OrderCard
               order={item as Order}

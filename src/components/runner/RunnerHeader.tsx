@@ -55,7 +55,7 @@ export const RunnerHeader: React.FC<RunnerHeaderProps> = ({
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [headerAnim, heroScale]);
 
   return (
     <Animated.View
