@@ -168,7 +168,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
   }, [startAnimations]);
 
   // Check if form is valid (for button state)
-  const isFormValid = (): boolean => {
+  const isFormValid = useCallback((): boolean => {
     return (
       deliveryInfo.address.trim() !== "" &&
       deliveryInfo.hall_hostel.trim() !== "" &&
@@ -178,11 +178,19 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
       deliveryInfo.latitude !== undefined &&
       deliveryInfo.longitude !== undefined
     );
-  };
+  }, [
+    deliveryInfo.address,
+    deliveryInfo.hall_hostel,
+    deliveryInfo.room_number,
+    deliveryInfo.phone,
+    deliveryInfo.latitude,
+    deliveryInfo.longitude,
+  ]);
 
   // Animate button when form validity changes
   useEffect(() => {
-    if (isFormValid()) {
+    const formValid = isFormValid();
+    if (formValid) {
       // Pulse animation when button becomes enabled
       Animated.sequence([
         Animated.timing(buttonScaleAnim, {
@@ -204,7 +212,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
         useNativeDriver: true,
       }).start();
     }
-  }, [isFormValid(), buttonScaleAnim]);
+  }, [isFormValid, buttonScaleAnim]);
 
   // Get current location
   const getCurrentLocation = async () => {
@@ -1048,11 +1056,18 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
               onPress={() => setShowLocationModal(false)}
             >
               <Ionicons
-                name="close"
-                size={24}
-                color={ColorPalette.neutral[600]}
+                name="close-circle"
+                size={28}
+                color={ColorPalette.error[500]}
               />
             </TouchableOpacity>
+          </View>
+
+          {/* Instructions */}
+          <View style={styles.mapInstructions}>
+            <Text style={styles.mapInstructionsText}>
+              Tap on the map to select your delivery location
+            </Text>
           </View>
 
           <MapView
@@ -1069,35 +1084,59 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
                   longitude: locationData.longitude,
                 }}
                 title="Delivery Location"
+                pinColor={ColorPalette.primary[500]}
               />
             )}
           </MapView>
 
-          {locationData && (
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationAddress}>{locationData.address}</Text>
-              <TouchableOpacity
-                style={styles.confirmLocationButton}
-                onPress={() => {
-                  setAddressInput(locationData.address);
-                  setDeliveryInfo((prev) => ({
-                    ...prev,
-                    latitude: locationData.latitude,
-                    longitude: locationData.longitude,
-                    address: locationData.address,
-                  }));
-                  setShowLocationModal(false);
-                  if (errors.address) {
-                    setErrors((prev) => ({ ...prev, address: undefined }));
-                  }
-                }}
-              >
-                <Text style={styles.confirmLocationButtonText}>
-                  Confirm Location
+          <View style={styles.locationInfo}>
+            {locationData ? (
+              <>
+                <Text style={styles.locationAddress}>
+                  {locationData.address}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                <TouchableOpacity
+                  style={styles.confirmLocationButton}
+                  onPress={() => {
+                    setAddressInput(locationData.address);
+                    setDeliveryInfo((prev) => ({
+                      ...prev,
+                      latitude: locationData.latitude,
+                      longitude: locationData.longitude,
+                      address: locationData.address,
+                    }));
+                    setShowLocationModal(false);
+                    if (errors.address) {
+                      setErrors((prev) => ({ ...prev, address: undefined }));
+                    }
+                  }}
+                >
+                  <Text style={styles.confirmLocationButtonText}>
+                    Confirm This Location
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.noLocationSelected}>
+                <Ionicons
+                  name="location-outline"
+                  size={24}
+                  color={ColorPalette.neutral[400]}
+                />
+                <Text style={styles.noLocationText}>
+                  No location selected yet. Tap anywhere on the map to choose
+                  your delivery location.
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.cancelLocationButton}
+              onPress={() => setShowLocationModal(false)}
+            >
+              <Text style={styles.cancelLocationButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </Portal>
@@ -1624,7 +1663,22 @@ const styles = StyleSheet.create({
     color: ColorPalette.neutral[800],
   },
   locationModalClose: {
-    padding: spacing.sm,
+    padding: spacing.xs,
+    backgroundColor: ColorPalette.neutral[100],
+    borderRadius: 20,
+  },
+  mapInstructions: {
+    backgroundColor: ColorPalette.primary[50],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: ColorPalette.neutral[200],
+  },
+  mapInstructionsText: {
+    fontSize: 14,
+    color: ColorPalette.primary[700],
+    textAlign: "center",
+    fontWeight: "500",
   },
   locationMap: {
     flex: 1,
@@ -1645,11 +1699,40 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.md,
     alignItems: "center",
+    marginBottom: spacing.md,
   },
   confirmLocationButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  noLocationSelected: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ColorPalette.neutral[50],
+    padding: spacing.lg,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+  },
+  noLocationText: {
+    marginLeft: spacing.md,
+    fontSize: 14,
+    color: ColorPalette.neutral[600],
+    flex: 1,
+    lineHeight: 20,
+  },
+  cancelLocationButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: ColorPalette.neutral[300],
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+  },
+  cancelLocationButtonText: {
+    color: ColorPalette.neutral[600],
+    fontSize: 16,
+    fontWeight: "500",
   },
 
   // Action Button
